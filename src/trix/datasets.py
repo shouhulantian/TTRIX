@@ -1438,26 +1438,20 @@ class ICEWS14to0515(InMemoryDataset):
         train_res = self._load_file(
             os.path.join(self.train_path, "train.txt"),
             inv_entity_vocab={}, inv_rel_vocab={})
-        train_valid_res = self._load_file(
+        valid_res = self._load_file(
             os.path.join(self.train_path, "valid.txt"),
             dict(train_res["inv_entity_vocab"]), dict(train_res["inv_rel_vocab"]))
-        train_test_res = self._load_file(
-            os.path.join(self.train_path, "test.txt"),
-            dict(train_valid_res["inv_entity_vocab"]), dict(train_valid_res["inv_rel_vocab"]))
 
-        num_train_nodes = train_test_res["num_node"]
-        num_train_rels = train_test_res["num_relation"]
+        num_train_nodes = valid_res["num_node"]
+        num_train_rels = valid_res["num_relation"]
 
         # Load ICEWS05-15 as inference graph (separate vocab)
         inf_train_res = self._load_file(
             os.path.join(self.inf_path, "train.txt"),
             inv_entity_vocab={}, inv_rel_vocab={})
-        inf_valid_res = self._load_file(
-            os.path.join(self.inf_path, "valid.txt"),
-            dict(inf_train_res["inv_entity_vocab"]), dict(inf_train_res["inv_rel_vocab"]))
         inf_test_res = self._load_file(
             os.path.join(self.inf_path, "test.txt"),
-            dict(inf_valid_res["inv_entity_vocab"]), dict(inf_valid_res["inv_rel_vocab"]))
+            dict(inf_train_res["inv_entity_vocab"]), dict(inf_train_res["inv_rel_vocab"]))
 
         inf_num_nodes = inf_test_res["num_node"]
         inf_num_rels = inf_test_res["num_relation"]
@@ -1469,6 +1463,9 @@ class ICEWS14to0515(InMemoryDataset):
         train_fact_index = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
         train_fact_type = torch.cat([train_target_etypes, train_target_etypes + num_train_rels])
 
+        # Validation targets from ICEWS14 valid split
+        valid_edges = torch.tensor(valid_res["triplets"], dtype=torch.long)
+
         # Build inference graph (ICEWS05-15 train split as background graph)
         inf_graph_edges = inf_train_res["triplets"]
         inf_edges = torch.tensor([[t[0], t[1]] for t in inf_graph_edges], dtype=torch.long).t()
@@ -1476,19 +1473,18 @@ class ICEWS14to0515(InMemoryDataset):
         inf_etypes = torch.tensor([t[2] for t in inf_graph_edges])
         inf_etypes = torch.cat([inf_etypes, inf_etypes + inf_num_rels])
 
-        # Validation and test targets from ICEWS05-15
-        inf_valid_edges = torch.tensor(inf_valid_res["triplets"], dtype=torch.long)
+        # Test targets from ICEWS05-15
         inf_test_edges = torch.tensor(inf_test_res["triplets"], dtype=torch.long)
 
         train_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
                           num_nodes=num_train_nodes,
                           target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
                           num_relations=num_train_rels * 2)
-        valid_data = Data(edge_index=inf_edges, edge_type=inf_etypes,
-                          num_nodes=inf_num_nodes,
-                          target_edge_index=inf_valid_edges[:, :2].T,
-                          target_edge_type=inf_valid_edges[:, 2],
-                          num_relations=inf_num_rels * 2)
+        valid_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=valid_edges[:, :2].T,
+                          target_edge_type=valid_edges[:, 2],
+                          num_relations=num_train_rels * 2)
         test_data = Data(edge_index=inf_edges, edge_type=inf_etypes,
                          num_nodes=inf_num_nodes,
                          target_edge_index=inf_test_edges[:, :2].T,
