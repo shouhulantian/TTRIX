@@ -117,10 +117,10 @@ def train_and_validate(cfg, model, train_data, valid_data, device, logger, filte
     if rank == 0:
         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
     if best_epoch != -1:
-        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
+        state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
         model.load_state_dict(state["model"])
     else:
-        state = torch.load("model_epoch_1.pth", map_location=device)
+        state = torch.load("model_epoch_1.pth", map_location=device, weights_only=False)
         model.load_state_dict(state["model"])
     util.synchronize()
     return best_epoch
@@ -130,20 +130,30 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
     world_size = util.get_world_size()
     rank = util.get_rank()
 
-    test_triplets = torch.cat([test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0)]).t()
+    has_time = hasattr(test_data, 'target_edge_time') and test_data.target_edge_time is not None
+    if has_time:
+        test_triplets = torch.cat([test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0),
+                                   test_data.target_edge_time.unsqueeze(0)]).t()
+    else:
+        test_triplets = torch.cat([test_data.target_edge_index, test_data.target_edge_type.unsqueeze(0)]).t()
     sampler = torch_data.DistributedSampler(test_triplets, world_size, rank)
     test_loader = torch_data.DataLoader(test_triplets, cfg.train.batch_size, sampler=sampler)
 
     model.eval()
     rankings = []
     num_negatives = []
-    tail_rankings, num_tail_negs = [], [] 
+    tail_rankings, num_tail_negs = [], []
     for batch in test_loader:
+        if has_time:
+            batch_time = batch[:, 3]
+            batch = batch[:, :3]
         t_batch, h_batch = tasks.all_negative(test_data, batch)
         t_pred = model(test_data, t_batch)
         h_pred = model(test_data, h_batch)
 
-        if filtered_data is None:
+        if has_time and filtered_data is not None and hasattr(filtered_data, 'edge_time'):
+            t_mask, h_mask = tasks.temporal_strict_negative_mask(filtered_data, batch, batch_time)
+        elif filtered_data is None:
             t_mask, h_mask = tasks.strict_negative_mask(test_data, batch)
         else:
             t_mask, h_mask = tasks.strict_negative_mask(filtered_data, batch)
@@ -301,8 +311,17 @@ if __name__ == "__main__":
     )
 
     if "checkpoint" in cfg and cfg.checkpoint is not None:
-        state = torch.load(cfg.checkpoint, map_location="cpu")
-        model.load_state_dict(state["model"])
+        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
+        # remap checkpoint keys if saved with old naming convention
+        state_dict = state["model"]
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith("entity_model_mini."):
+                k = "entity_model_1." + k[len("entity_model_mini."):]
+            elif k.startswith("entity_model."):
+                k = "entity_model_2." + k[len("entity_model."):]
+            new_state_dict[k] = v
+        model.load_state_dict(new_state_dict)
 
     model = model.to(device)
     
@@ -330,7 +349,11 @@ if __name__ == "__main__":
             )
     else:
         # for transductive setting, use the whole graph for filtered ranking
-        filtered_data = Data(edge_index=dataset._data.target_edge_index, edge_type=dataset._data.target_edge_type, num_nodes=dataset[0].num_nodes)
+        filter_kwargs = dict(edge_index=dataset._data.target_edge_index, edge_type=dataset._data.target_edge_type, num_nodes=dataset[0].num_nodes)
+        # include timestamps for time-aware filtering if available
+        if hasattr(dataset._data, 'target_edge_time') and dataset._data.target_edge_time is not None:
+            filter_kwargs['edge_time'] = dataset._data.target_edge_time
+        filtered_data = Data(**filter_kwargs)
         val_filtered_data = test_filtered_data = filtered_data
     
     val_filtered_data = val_filtered_data.to(device)
@@ -338,8 +361,16 @@ if __name__ == "__main__":
     
     best_epoch = train_and_validate(cfg, model, train_data, valid_data if "fast_test" not in cfg.train else short_valid, filtered_data=val_filtered_data, device=device, batch_per_epoch=cfg.train.batch_per_epoch, logger=logger)
     if best_epoch == -1:
-        state = torch.load(cfg.checkpoint, map_location=device)
-        model.load_state_dict(state["model"])
+        state = torch.load(cfg.checkpoint, map_location=device, weights_only=False)
+        state_dict = state["model"]
+        new_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith("entity_model_mini."):
+                k = "entity_model_1." + k[len("entity_model_mini."):]
+            elif k.startswith("entity_model."):
+                k = "entity_model_2." + k[len("entity_model."):]
+            new_state_dict[k] = v
+        model.load_state_dict(new_state_dict)
 
     if util.get_rank() == 0:
         logger.warning(separator)

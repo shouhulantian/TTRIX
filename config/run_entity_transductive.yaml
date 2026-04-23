@@ -1,4 +1,4 @@
-output_dir: /output
+output_dir: /hkfs/work/workspace/scratch/st_ac139229-TRIX/TRIX/output
 
 dataset:
   class: {{ dataset }}

@@ -20,7 +20,7 @@ class GrailInductiveDataset(InMemoryDataset):
         # you'll need to delete the processed datasets then and re-run to cache a new dataset
         self.merge_valid_test = merge_valid_test
         super().__init__(root, transform, pre_transform)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def num_relations(self):
@@ -244,7 +244,7 @@ class TransductiveDataset(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
 
         super().__init__(root, transform, pre_transform)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def raw_file_names(self):
@@ -593,8 +593,166 @@ class FB15k237_10(SparserKG):
 class FB15k237_20(SparserKG):   
     name = "FB15K-237-20"
 
-class FB15k237_50(SparserKG):   
+class FB15k237_50(SparserKG):
     name = "FB15K-237-50"
+
+
+class TemporalTransductiveDataset(TransductiveDataset):
+    """Base class for temporal KG datasets with quadruples (h, r, t, timestamp).
+    Loads data ignoring timestamps for structural TRIX, but stores timestamps
+    for time-aware filtering during evaluation."""
+
+    delimiter = "\t"
+    store_timestamps = False  # subclasses set True for temporal filtering
+
+    def load_file(self, triplet_file, inv_entity_vocab={}, inv_rel_vocab={}):
+        triplets = []
+        timestamps = []
+        entity_cnt, rel_cnt = len(inv_entity_vocab), len(inv_rel_vocab)
+
+        with open(triplet_file, "r", encoding="utf-8-sig") as fin:
+            for l in fin:
+                parts = l.strip().split(self.delimiter)
+                u, r, v = parts[0], parts[1], parts[2]
+                if u not in inv_entity_vocab:
+                    inv_entity_vocab[u] = entity_cnt
+                    entity_cnt += 1
+                if v not in inv_entity_vocab:
+                    inv_entity_vocab[v] = entity_cnt
+                    entity_cnt += 1
+                if r not in inv_rel_vocab:
+                    inv_rel_vocab[r] = rel_cnt
+                    rel_cnt += 1
+                u_id, r_id, v_id = inv_entity_vocab[u], inv_rel_vocab[r], inv_entity_vocab[v]
+                triplets.append((u_id, v_id, r_id))
+                if len(parts) >= 4 and self.store_timestamps:
+                    timestamps.append(parts[3])
+
+        result = {
+            "triplets": triplets,
+            "num_node": len(inv_entity_vocab),
+            "num_relation": rel_cnt,
+            "inv_entity_vocab": inv_entity_vocab,
+            "inv_rel_vocab": inv_rel_vocab
+        }
+        if self.store_timestamps:
+            result["timestamps"] = timestamps
+        return result
+
+
+class ICEWS14(TemporalTransductiveDataset):
+    """
+    ICEWS14: 7128 entities, 230 relations, 365 timestamps, 90730 quadruples
+    Random split (not chronological)
+    """
+    name = "icews14"
+
+    def __init__(self, root, **kwargs):
+        super(ICEWS14, self).__init__(root=root, **kwargs)
+
+
+class ICEWS0515(TemporalTransductiveDataset):
+    """
+    ICEWS05-15: 10488 entities, 251 relations, 4017 timestamps, 461329 quadruples
+    Random split (not chronological)
+    """
+    name = "icews0515"
+
+    def __init__(self, root, **kwargs):
+        super(ICEWS0515, self).__init__(root=root, **kwargs)
+
+
+class TemporalICEWS14(TemporalTransductiveDataset):
+    """ICEWS14 with timestamps stored for time-aware filtering."""
+    name = "temporal_icews14"
+    store_timestamps = True
+
+    def __init__(self, root, **kwargs):
+        super(TemporalICEWS14, self).__init__(root=root, **kwargs)
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "icews14", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "temporal_icews14", "processed")
+
+    def _parse_date(self, date_str):
+        """Convert YYYY-MM-DD to integer day offset."""
+        from datetime import datetime
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return int(dt.toordinal())
+
+    def process(self):
+        train_results = self.load_file(self.raw_paths[0], inv_entity_vocab={}, inv_rel_vocab={})
+        valid_results = self.load_file(self.raw_paths[1],
+                        train_results["inv_entity_vocab"], train_results["inv_rel_vocab"])
+        test_results = self.load_file(self.raw_paths[2],
+                        train_results["inv_entity_vocab"], train_results["inv_rel_vocab"])
+
+        num_node = test_results["num_node"]
+        num_relations = test_results["num_relation"]
+
+        train_triplets = train_results["triplets"]
+        valid_triplets = valid_results["triplets"]
+        test_triplets = test_results["triplets"]
+
+        # Parse timestamps to integer day offsets
+        all_dates = train_results["timestamps"] + valid_results["timestamps"] + test_results["timestamps"]
+        date_ints = [self._parse_date(d) for d in all_dates]
+        min_date = min(date_ints)
+
+        train_times = torch.tensor([self._parse_date(d) - min_date for d in train_results["timestamps"]])
+        valid_times = torch.tensor([self._parse_date(d) - min_date for d in valid_results["timestamps"]])
+        test_times = torch.tensor([self._parse_date(d) - min_date for d in test_results["timestamps"]])
+
+        train_target_edges = torch.tensor([[t[0], t[1]] for t in train_triplets], dtype=torch.long).t()
+        train_target_etypes = torch.tensor([t[2] for t in train_triplets])
+
+        valid_edges = torch.tensor([[t[0], t[1]] for t in valid_triplets], dtype=torch.long).t()
+        valid_etypes = torch.tensor([t[2] for t in valid_triplets])
+
+        test_edges = torch.tensor([[t[0], t[1]] for t in test_triplets], dtype=torch.long).t()
+        test_etypes = torch.tensor([t[2] for t in test_triplets])
+
+        # Add inverse edges (timestamps are duplicated for inverse)
+        train_edges_bi = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+        train_etypes_bi = torch.cat([train_target_etypes, train_target_etypes + num_relations])
+        train_times_bi = torch.cat([train_times, train_times])
+
+        train_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                          target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                          num_relations=num_relations * 2,
+                          edge_time=train_times_bi, target_edge_time=train_times)
+        valid_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                          target_edge_index=valid_edges, target_edge_type=valid_etypes,
+                          num_relations=num_relations * 2,
+                          edge_time=train_times_bi, target_edge_time=valid_times)
+        test_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                         target_edge_index=test_edges, target_edge_type=test_etypes,
+                         num_relations=num_relations * 2,
+                         edge_time=train_times_bi, target_edge_time=test_times)
+
+        if self.pre_transform is not None:
+            train_data = self.pre_transform(train_data)
+            valid_data = self.pre_transform(valid_data)
+            test_data = self.pre_transform(test_data)
+
+        torch.save((self.collate([train_data, valid_data, test_data])), self.processed_paths[0])
+
+
+class TemporalICEWS0515(TemporalICEWS14):
+    """ICEWS05-15 with timestamps stored for time-aware filtering."""
+    name = "temporal_icews0515"
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "icews0515", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "temporal_icews0515", "processed")
 
 
 class InductiveDataset(InMemoryDataset):
@@ -607,7 +765,7 @@ class InductiveDataset(InMemoryDataset):
 
         self.version = str(version)
         super().__init__(root, transform, pre_transform)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     def download(self):
         for url, path in zip(self.urls, self.raw_paths):
@@ -1067,7 +1225,7 @@ class JointDataset(InMemoryDataset):
         self.graphs = [self.datasets_map[ds](root=root) for ds in graphs]
         self.num_graphs = len(graphs)
         super().__init__(root, transform, pre_transform)
-        self.data = torch.load(self.processed_paths[0])
+        self.data = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def raw_dir(self):
@@ -1235,3 +1393,134 @@ class WikiTopicsMeta(WikiTopics):
         return [
             "train.txt", "train.txt", "valid.txt", "valid.txt"
         ]
+
+
+class ICEWS14to0515(InMemoryDataset):
+    """Cross-dataset transfer: train on ICEWS14, zero-shot test on ICEWS05-15.
+    Follows InductiveDataset pattern with separate train/inference graphs.
+    Fully inductive: re-indexes all entities and relations from scratch."""
+
+    delimiter = "\t"
+
+    def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
+        self.train_path = os.path.join(root, "icews14", "raw")
+        self.inf_path = os.path.join(root, "icews0515", "raw")
+        super().__init__(root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+
+    def _load_file(self, triplet_file, inv_entity_vocab={}, inv_rel_vocab={}):
+        triplets = []
+        entity_cnt, rel_cnt = len(inv_entity_vocab), len(inv_rel_vocab)
+        with open(triplet_file, "r", encoding="utf-8-sig") as fin:
+            for l in fin:
+                parts = l.strip().split(self.delimiter)
+                u, r, v = parts[0], parts[1], parts[2]
+                if u not in inv_entity_vocab:
+                    inv_entity_vocab[u] = entity_cnt
+                    entity_cnt += 1
+                if v not in inv_entity_vocab:
+                    inv_entity_vocab[v] = entity_cnt
+                    entity_cnt += 1
+                if r not in inv_rel_vocab:
+                    inv_rel_vocab[r] = rel_cnt
+                    rel_cnt += 1
+                triplets.append((inv_entity_vocab[u], inv_entity_vocab[v], inv_rel_vocab[r]))
+        return {
+            "triplets": triplets,
+            "num_node": len(inv_entity_vocab),
+            "num_relation": rel_cnt,
+            "inv_entity_vocab": inv_entity_vocab,
+            "inv_rel_vocab": inv_rel_vocab
+        }
+
+    def process(self):
+        # Load ICEWS14 as training graph (own vocab)
+        train_res = self._load_file(
+            os.path.join(self.train_path, "train.txt"),
+            inv_entity_vocab={}, inv_rel_vocab={})
+        train_valid_res = self._load_file(
+            os.path.join(self.train_path, "valid.txt"),
+            dict(train_res["inv_entity_vocab"]), dict(train_res["inv_rel_vocab"]))
+        train_test_res = self._load_file(
+            os.path.join(self.train_path, "test.txt"),
+            dict(train_valid_res["inv_entity_vocab"]), dict(train_valid_res["inv_rel_vocab"]))
+
+        num_train_nodes = train_test_res["num_node"]
+        num_train_rels = train_test_res["num_relation"]
+
+        # Load ICEWS05-15 as inference graph (separate vocab)
+        inf_train_res = self._load_file(
+            os.path.join(self.inf_path, "train.txt"),
+            inv_entity_vocab={}, inv_rel_vocab={})
+        inf_valid_res = self._load_file(
+            os.path.join(self.inf_path, "valid.txt"),
+            dict(inf_train_res["inv_entity_vocab"]), dict(inf_train_res["inv_rel_vocab"]))
+        inf_test_res = self._load_file(
+            os.path.join(self.inf_path, "test.txt"),
+            dict(inf_valid_res["inv_entity_vocab"]), dict(inf_valid_res["inv_rel_vocab"]))
+
+        inf_num_nodes = inf_test_res["num_node"]
+        inf_num_rels = inf_test_res["num_relation"]
+
+        # Build train graph (ICEWS14 train split)
+        train_edges = train_res["triplets"]
+        train_target_edges = torch.tensor([[t[0], t[1]] for t in train_edges], dtype=torch.long).t()
+        train_target_etypes = torch.tensor([t[2] for t in train_edges])
+        train_fact_index = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+        train_fact_type = torch.cat([train_target_etypes, train_target_etypes + num_train_rels])
+
+        # Build inference graph (ICEWS05-15 train split as background graph)
+        inf_graph_edges = inf_train_res["triplets"]
+        inf_edges = torch.tensor([[t[0], t[1]] for t in inf_graph_edges], dtype=torch.long).t()
+        inf_edges = torch.cat([inf_edges, inf_edges.flip(0)], dim=1)
+        inf_etypes = torch.tensor([t[2] for t in inf_graph_edges])
+        inf_etypes = torch.cat([inf_etypes, inf_etypes + inf_num_rels])
+
+        # Validation and test targets from ICEWS05-15
+        inf_valid_edges = torch.tensor(inf_valid_res["triplets"], dtype=torch.long)
+        inf_test_edges = torch.tensor(inf_test_res["triplets"], dtype=torch.long)
+
+        train_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                          num_relations=num_train_rels * 2)
+        valid_data = Data(edge_index=inf_edges, edge_type=inf_etypes,
+                          num_nodes=inf_num_nodes,
+                          target_edge_index=inf_valid_edges[:, :2].T,
+                          target_edge_type=inf_valid_edges[:, 2],
+                          num_relations=inf_num_rels * 2)
+        test_data = Data(edge_index=inf_edges, edge_type=inf_etypes,
+                         num_nodes=inf_num_nodes,
+                         target_edge_index=inf_test_edges[:, :2].T,
+                         target_edge_type=inf_test_edges[:, 2],
+                         num_relations=inf_num_rels * 2)
+
+        if self.pre_transform is not None:
+            train_data = self.pre_transform(train_data)
+            valid_data = self.pre_transform(valid_data)
+            test_data = self.pre_transform(test_data)
+
+        torch.save((self.collate([train_data, valid_data, test_data])), self.processed_paths[0])
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "icews14to0515", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "icews14to0515", "processed")
+
+    @property
+    def raw_file_names(self):
+        return []
+
+    @property
+    def processed_file_names(self):
+        return "data.pt"
+
+    @property
+    def num_relations(self):
+        return int(self.data.edge_type.max()) + 1
+
+    def __repr__(self):
+        return "ICEWS14to0515()"

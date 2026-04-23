@@ -131,7 +131,7 @@ def train_and_validate(cfg, model, train_data, valid_data, filtered_data=None, b
 
     if rank == 0:
         logger.warning("Load checkpoint from model_epoch_%d.pth" % best_epoch)
-    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device)
+    state = torch.load("model_epoch_%d.pth" % best_epoch, map_location=device, weights_only=False)
     model.load_state_dict(state["model"])
     util.synchronize()
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     )
 
     if "checkpoint" in cfg:
-        state = torch.load(cfg.checkpoint, map_location="cpu")
+        state = torch.load(cfg.checkpoint, map_location="cpu", weights_only=False)
         model.load_state_dict(state["model"])
 
     model = model.to(device)

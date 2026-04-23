@@ -2,7 +2,7 @@ from functools import reduce
 from torch_scatter import scatter_add
 from torch_geometric.data import Data
 import torch
-import torch_geometric.utils.degree as degree
+from torch_geometric.utils import degree
 
 
 def edge_match(edge_index, query_index):
@@ -147,6 +147,42 @@ def strict_negative_mask(data, batch):
     sample_id = torch.arange(len(num_h_truth), device=batch.device).repeat_interleave(num_h_truth)
     h_mask = torch.ones(len(num_h_truth), data.num_nodes, dtype=torch.bool, device=batch.device)
     # assign 0s to the mask with the found true heads
+    h_mask[sample_id, h_truth_index] = 0
+    h_mask.scatter_(1, pos_h_index.unsqueeze(-1), 0)
+
+    return t_mask, h_mask
+
+
+def temporal_strict_negative_mask(data, batch, batch_time):
+    """Time-aware filtered ranking: only filter out facts with the same timestamp.
+
+    For a query (h, r, ?, ts), only filter tails t' where (h, r, t', ts) exists.
+    Facts at other timestamps remain as valid negatives.
+
+    data: filtering graph with edge_index, edge_type, and edge_time attributes
+    batch: (h, t, r) triples
+    batch_time: timestamps for each triple in the batch
+    """
+    pos_h_index, pos_t_index, pos_r_index = batch.t()
+
+    # Part I: time-aware negative tails
+    # Build (head, relation, time) index for matching
+    edge_index_3 = torch.stack([data.edge_index[0], data.edge_type, data.edge_time])
+    query_index_3 = torch.stack([pos_h_index, pos_r_index, batch_time])
+    edge_id, num_t_truth = edge_match(edge_index_3, query_index_3)
+    t_truth_index = data.edge_index[1, edge_id]
+    sample_id = torch.arange(len(num_t_truth), device=batch.device).repeat_interleave(num_t_truth)
+    t_mask = torch.ones(len(num_t_truth), data.num_nodes, dtype=torch.bool, device=batch.device)
+    t_mask[sample_id, t_truth_index] = 0
+    t_mask.scatter_(1, pos_t_index.unsqueeze(-1), 0)
+
+    # Part II: time-aware negative heads
+    edge_index_3 = torch.stack([data.edge_index[1], data.edge_type, data.edge_time])
+    query_index_3 = torch.stack([pos_t_index, pos_r_index, batch_time])
+    edge_id, num_h_truth = edge_match(edge_index_3, query_index_3)
+    h_truth_index = data.edge_index[0, edge_id]
+    sample_id = torch.arange(len(num_h_truth), device=batch.device).repeat_interleave(num_h_truth)
+    h_mask = torch.ones(len(num_h_truth), data.num_nodes, dtype=torch.bool, device=batch.device)
     h_mask[sample_id, h_truth_index] = 0
     h_mask.scatter_(1, pos_h_index.unsqueeze(-1), 0)
 
