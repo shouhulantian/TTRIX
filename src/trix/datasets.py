@@ -1648,3 +1648,144 @@ class GDELTIndT100Static(InductiveDataset):
 
     def __repr__(self):
         return "GDELTIndT100Static()"
+
+
+class GDELTIndT100Temporal(InductiveDataset):
+    """Same INGRAM 4-file layout as GDELTIndT100Static, but timestamps are
+    parsed and stored as edge_time / target_edge_time so the evaluation loop
+    can use temporal_strict_negative_mask (time-aware filtered ranking).
+
+    The model still sees only (h, r, t) — the time vector is consulted only by
+    the filter when ranking, so time-aware vs static is the only thing that
+    differs at eval time.
+    """
+
+    name = "GDELTIndT_100"
+    delimiter = "\t"
+    valid_on_inf = False
+
+    def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
+        InMemoryDataset.__init__(self, root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+
+    @staticmethod
+    def _parse_date(date_str):
+        from datetime import datetime
+        return int(datetime.strptime(date_str, "%Y-%m-%d").toordinal())
+
+    def load_file(self, triplet_file, inv_entity_vocab=None, inv_rel_vocab=None):
+        inv_entity_vocab = dict(inv_entity_vocab) if inv_entity_vocab else {}
+        inv_rel_vocab = dict(inv_rel_vocab) if inv_rel_vocab else {}
+        entity_cnt, rel_cnt = len(inv_entity_vocab), len(inv_rel_vocab)
+        triplets = []
+        timestamps = []
+        with open(triplet_file, "r", encoding="utf-8") as fin:
+            for line in fin:
+                parts = line.rstrip("\n").split(self.delimiter)
+                if len(parts) < 4:
+                    continue
+                u, r, v, ts = parts[0], parts[1], parts[2], parts[3]
+                if u not in inv_entity_vocab:
+                    inv_entity_vocab[u] = entity_cnt; entity_cnt += 1
+                if v not in inv_entity_vocab:
+                    inv_entity_vocab[v] = entity_cnt; entity_cnt += 1
+                if r not in inv_rel_vocab:
+                    inv_rel_vocab[r] = rel_cnt; rel_cnt += 1
+                triplets.append((inv_entity_vocab[u], inv_entity_vocab[v], inv_rel_vocab[r]))
+                timestamps.append(ts)
+        return {
+            "triplets": triplets,
+            "timestamps": timestamps,
+            "num_node": len(inv_entity_vocab),
+            "num_relation": len(inv_rel_vocab),
+            "inv_entity_vocab": inv_entity_vocab,
+            "inv_rel_vocab": inv_rel_vocab,
+        }
+
+    def process(self):
+        train_path, msg_path, valid_path, test_path = self.raw_paths[:4]
+
+        train_res = self.load_file(train_path)
+        valid_res = self.load_file(valid_path,
+                                   inv_entity_vocab=train_res["inv_entity_vocab"],
+                                   inv_rel_vocab=train_res["inv_rel_vocab"])
+        inf_res = self.load_file(msg_path)
+        test_res = self.load_file(test_path,
+                                  inv_entity_vocab=inf_res["inv_entity_vocab"],
+                                  inv_rel_vocab=inf_res["inv_rel_vocab"])
+
+        num_train_nodes = valid_res["num_node"]
+        num_train_rels = valid_res["num_relation"]
+        num_inf_nodes = test_res["num_node"]
+        num_inf_rels = test_res["num_relation"]
+
+        # Shared min-date so train and test timestamps live in the same offset space
+        all_dates = (train_res["timestamps"] + valid_res["timestamps"]
+                     + inf_res["timestamps"] + test_res["timestamps"])
+        min_ord = min(self._parse_date(d) for d in all_dates)
+        def to_t(stamps):
+            return torch.tensor([self._parse_date(d) - min_ord for d in stamps], dtype=torch.long)
+
+        train_t = to_t(train_res["timestamps"])
+        valid_t_time = to_t(valid_res["timestamps"])
+        inf_t = to_t(inf_res["timestamps"])
+        test_t_time = to_t(test_res["timestamps"])
+
+        # G_tr: train.txt is both the message-passing graph and the train targets
+        train_target_edges = torch.tensor([[t[0], t[1]] for t in train_res["triplets"]], dtype=torch.long).t()
+        train_target_etypes = torch.tensor([t[2] for t in train_res["triplets"]])
+        train_fact_index = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+        train_fact_type = torch.cat([train_target_etypes, train_target_etypes + num_train_rels])
+        train_fact_time = torch.cat([train_t, train_t])
+
+        # G_inf: msg.txt is the inference graph
+        inf_edge_index = torch.tensor([[t[0], t[1]] for t in inf_res["triplets"]], dtype=torch.long).t()
+        inf_edge_index_bi = torch.cat([inf_edge_index, inf_edge_index.flip(0)], dim=1)
+        inf_etypes = torch.tensor([t[2] for t in inf_res["triplets"]])
+        inf_etypes_bi = torch.cat([inf_etypes, inf_etypes + num_inf_rels])
+        inf_time_bi = torch.cat([inf_t, inf_t])
+
+        valid_q = torch.tensor(valid_res["triplets"], dtype=torch.long)  # (n, 3) as (h, t, r)
+        test_q = torch.tensor(test_res["triplets"], dtype=torch.long)
+
+        train_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                          num_relations=num_train_rels * 2,
+                          edge_time=train_fact_time, target_edge_time=train_t)
+        valid_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=valid_q[:, :2].T, target_edge_type=valid_q[:, 2],
+                          num_relations=num_train_rels * 2,
+                          edge_time=train_fact_time, target_edge_time=valid_t_time)
+        test_data = Data(edge_index=inf_edge_index_bi, edge_type=inf_etypes_bi,
+                         num_nodes=num_inf_nodes,
+                         target_edge_index=test_q[:, :2].T, target_edge_type=test_q[:, 2],
+                         num_relations=num_inf_rels * 2,
+                         edge_time=inf_time_bi, target_edge_time=test_t_time)
+
+        if self.pre_transform is not None:
+            train_data = self.pre_transform(train_data)
+            valid_data = self.pre_transform(valid_data)
+            test_data = self.pre_transform(test_data)
+
+        torch.save(self.collate([train_data, valid_data, test_data]), self.processed_paths[0])
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, self.name, "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, self.name, "processed_temporal")
+
+    @property
+    def raw_file_names(self):
+        return ["train.txt", "msg.txt", "valid.txt", "test.txt"]
+
+    @property
+    def processed_file_names(self):
+        return "data.pt"
+
+    def __repr__(self):
+        return "GDELTIndT100Temporal()"

@@ -340,13 +340,22 @@ if __name__ == "__main__":
             # test filtering graph: inference edges + test edges
             full_inference_edges = torch.cat([test_data.edge_index, test_data.target_edge_index], dim=1)
             full_inference_etypes = torch.cat([test_data.edge_type, test_data.target_edge_type])
-            test_filtered_data = Data(edge_index=full_inference_edges, edge_type=full_inference_etypes, num_nodes=test_data.num_nodes)
+            test_kwargs = dict(edge_index=full_inference_edges, edge_type=full_inference_etypes,
+                               num_nodes=test_data.num_nodes)
+            if hasattr(test_data, 'edge_time') and test_data.edge_time is not None \
+                    and hasattr(test_data, 'target_edge_time') and test_data.target_edge_time is not None:
+                test_kwargs['edge_time'] = torch.cat([test_data.edge_time, test_data.target_edge_time])
+            test_filtered_data = Data(**test_kwargs)
 
             # validation filtering graph: train edges + validation edges
-            val_filtered_data = Data(
+            val_kwargs = dict(
                 edge_index=torch.cat([train_data.edge_index, valid_data.target_edge_index], dim=1),
-                edge_type=torch.cat([train_data.edge_type, valid_data.target_edge_type])
+                edge_type=torch.cat([train_data.edge_type, valid_data.target_edge_type]),
             )
+            if hasattr(train_data, 'edge_time') and train_data.edge_time is not None \
+                    and hasattr(valid_data, 'target_edge_time') and valid_data.target_edge_time is not None:
+                val_kwargs['edge_time'] = torch.cat([train_data.edge_time, valid_data.target_edge_time])
+            val_filtered_data = Data(**val_kwargs)
     else:
         # for transductive setting, use the whole graph for filtered ranking
         filter_kwargs = dict(edge_index=dataset._data.target_edge_index, edge_type=dataset._data.target_edge_type, num_nodes=dataset[0].num_nodes)
