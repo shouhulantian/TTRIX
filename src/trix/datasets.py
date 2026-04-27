@@ -1520,3 +1520,131 @@ class ICEWS14to0515(InMemoryDataset):
 
     def __repr__(self):
         return "ICEWS14to0515()"
+
+
+class GDELTIndT100Static(InductiveDataset):
+    """Fully-inductive GDELT subset (INGRAM 4-file layout) with timestamps stripped.
+
+    Raw layout under <root>/GDELTIndT_100/raw/:
+        train.txt, valid.txt -- G_tr quadruples (h, r, t, date)
+        msg.txt,   test.txt  -- G_inf quadruples (disjoint vocab from G_tr)
+
+    Timestamps are dropped at load time. Valid uses the G_tr graph + G_tr valid
+    targets (transductive valid, INGRAM convention); test uses the G_inf observed
+    graph (msg.txt) + G_inf test targets. The two graph vocabs are disjoint, so
+    inference truly tests inductive transfer.
+    """
+
+    name = "GDELTIndT_100"
+    delimiter = "\t"
+    valid_on_inf = False  # valid is held out from G_tr, not G_inf
+
+    def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
+        InMemoryDataset.__init__(self, root, transform, pre_transform)
+        self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+
+    def load_file(self, triplet_file, inv_entity_vocab=None, inv_rel_vocab=None):
+        inv_entity_vocab = dict(inv_entity_vocab) if inv_entity_vocab else {}
+        inv_rel_vocab = dict(inv_rel_vocab) if inv_rel_vocab else {}
+        entity_cnt, rel_cnt = len(inv_entity_vocab), len(inv_rel_vocab)
+        triplets = []
+        with open(triplet_file, "r", encoding="utf-8") as fin:
+            for line in fin:
+                parts = line.rstrip("\n").split(self.delimiter)
+                if len(parts) < 3:
+                    continue
+                u, r, v = parts[0], parts[1], parts[2]  # 4th column (timestamp) ignored
+                if u not in inv_entity_vocab:
+                    inv_entity_vocab[u] = entity_cnt; entity_cnt += 1
+                if v not in inv_entity_vocab:
+                    inv_entity_vocab[v] = entity_cnt; entity_cnt += 1
+                if r not in inv_rel_vocab:
+                    inv_rel_vocab[r] = rel_cnt; rel_cnt += 1
+                triplets.append((inv_entity_vocab[u], inv_entity_vocab[v], inv_rel_vocab[r]))
+        return {
+            "triplets": triplets,
+            "num_node": len(inv_entity_vocab),
+            "num_relation": len(inv_rel_vocab),
+            "inv_entity_vocab": inv_entity_vocab,
+            "inv_rel_vocab": inv_rel_vocab,
+        }
+
+    def process(self):
+        # raw_paths order matches raw_file_names: [train, msg, valid, test]
+        train_path, msg_path, valid_path, test_path = self.raw_paths[:4]
+
+        train_res = self.load_file(train_path)
+        valid_res = self.load_file(
+            valid_path,
+            inv_entity_vocab=train_res["inv_entity_vocab"],
+            inv_rel_vocab=train_res["inv_rel_vocab"],
+        )
+        inf_res = self.load_file(msg_path)
+        test_res = self.load_file(
+            test_path,
+            inv_entity_vocab=inf_res["inv_entity_vocab"],
+            inv_rel_vocab=inf_res["inv_rel_vocab"],
+        )
+
+        # Use the EXTENDED vocab sizes so any train- or msg-only entities still get an id.
+        num_train_nodes = valid_res["num_node"]
+        num_train_rels = valid_res["num_relation"]
+        num_inf_nodes = test_res["num_node"]
+        num_inf_rels = test_res["num_relation"]
+
+        train_edges = train_res["triplets"]
+        valid_edges = valid_res["triplets"]
+        inf_graph = inf_res["triplets"]
+        test_edges = test_res["triplets"]
+
+        train_target_edges = torch.tensor([[t[0], t[1]] for t in train_edges], dtype=torch.long).t()
+        train_target_etypes = torch.tensor([t[2] for t in train_edges])
+        train_fact_index = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+        train_fact_type = torch.cat([train_target_etypes, train_target_etypes + num_train_rels])
+
+        inf_edge_index = torch.tensor([[t[0], t[1]] for t in inf_graph], dtype=torch.long).t()
+        inf_edge_index = torch.cat([inf_edge_index, inf_edge_index.flip(0)], dim=1)
+        inf_etypes = torch.tensor([t[2] for t in inf_graph])
+        inf_etypes = torch.cat([inf_etypes, inf_etypes + num_inf_rels])
+
+        valid_t = torch.tensor(valid_edges, dtype=torch.long)
+        test_t = torch.tensor(test_edges, dtype=torch.long)
+
+        train_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                          num_relations=num_train_rels * 2)
+        valid_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
+                          num_nodes=num_train_nodes,
+                          target_edge_index=valid_t[:, :2].T, target_edge_type=valid_t[:, 2],
+                          num_relations=num_train_rels * 2)
+        test_data = Data(edge_index=inf_edge_index, edge_type=inf_etypes,
+                         num_nodes=num_inf_nodes,
+                         target_edge_index=test_t[:, :2].T, target_edge_type=test_t[:, 2],
+                         num_relations=num_inf_rels * 2)
+
+        if self.pre_transform is not None:
+            train_data = self.pre_transform(train_data)
+            valid_data = self.pre_transform(valid_data)
+            test_data = self.pre_transform(test_data)
+
+        torch.save(self.collate([train_data, valid_data, test_data]), self.processed_paths[0])
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, self.name, "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, self.name, "processed_static")
+
+    @property
+    def raw_file_names(self):
+        return ["train.txt", "msg.txt", "valid.txt", "test.txt"]
+
+    @property
+    def processed_file_names(self):
+        return "data.pt"
+
+    def __repr__(self):
+        return "GDELTIndT100Static()"
