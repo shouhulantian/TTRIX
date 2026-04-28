@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -23,6 +25,11 @@ class GeneralizedRelationalConv(MessagePassing):
     # Learned-time message functions need a per-time embedding. Listed here so
     # the layer wires up self.time / self.time_projection only when needed.
     LEARNED_TIME_MSGS = ("tcomplx", "tntcomplx")
+
+    # Time-aware message functions that need the slow message+aggregate path
+    # (per-edge logic the rspmm fast kernel can't express) plus access to
+    # query_time / time_type kwargs.
+    TIME_AWARE_MSGS = ("RoPE2", "RoPE2_decay", "tcomplx", "tntcomplx")
 
     def __init__(self, input_dim, output_dim, num_relation, query_input_dim, message_func="distmult",
                  aggregate_func="pna", layer_norm=False, activation="relu", dependent=False, project_relations=False,
@@ -104,6 +111,21 @@ class GeneralizedRelationalConv(MessagePassing):
                         nn.ReLU(),
                         nn.Linear(input_dim, input_dim)
                     )
+
+        # RoPE2 + RoPE-attention gate (no learnable parameters):
+        # Locality emerges from the rotated message's alignment with the
+        # per-edge relation embedding. After RoPE rotates the message by
+        # Δt, edges with small |Δt| keep good alignment with relation_j
+        # (high dot-product → high gate ≈ 1, message preserved); edges
+        # with large |Δt| have their phases scrambled by RoPE's frequency
+        # spectrum (low dot-product → low gate, message attenuated).
+        # This is the same mechanism that makes RoPE-attention in LLMs
+        # decay smoothly with relative position. No learnable scalar
+        # introduces source-overfitting, and the gate auto-rescales at
+        # inductive inference because relation_j is computed by RelNet
+        # on the target's relation graph (structure-derived).
+        # No __init__ state needed for RoPE2_decay -- everything is
+        # computed inline in message().
 
 
     def forward(self, input, query, boundary, edge_index, edge_type, size, edge_weight=None,
@@ -257,6 +279,31 @@ class GeneralizedRelationalConv(MessagePassing):
             # time_delta shape (B, E): broadcasts against input_j shape (B, E, dim)
             time_delta = query_time.unsqueeze(1) - time_type.unsqueeze(0)
             message = self.rope_relative(message, time_delta.to(message.dtype))
+        elif self.message_func == "RoPE2_decay":
+            # RoPE2 phase rotation + RoPE-attention locality gate.
+            # The rotated message's alignment with the relation embedding
+            # naturally encodes locality through RoPE's relative-rotation
+            # property: small |Δt| → small rotation → high alignment;
+            # large |Δt| → phases scramble → low alignment.
+            if query_time is None or time_type is None:
+                raise ValueError("RoPE2_decay requires query_time and time_type; "
+                                 "make sure data.edge_time is set and the model "
+                                 "passes batch[..., 3] as query_time.")
+            x_j_re, x_j_im = input_j.chunk(2, dim=-1)
+            r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
+            message_re = x_j_re * r_j_re - x_j_im * r_j_im
+            message_im = x_j_im * r_j_re + x_j_re * r_j_im
+            message = torch.cat([message_re, message_im], dim=-1)
+            time_delta = query_time.unsqueeze(1) - time_type.unsqueeze(0)
+            time_delta_f = time_delta.to(message.dtype)
+            m_rot = self.rope_relative(message, time_delta_f)        # (B, E, dim)
+            # RoPE-attention gate: dot-product similarity between the
+            # rotated message and the per-edge relation embedding,
+            # normalised by sqrt(d), squashed by sigmoid.
+            d = m_rot.size(-1)
+            sim = (m_rot * relation_j).sum(dim=-1) / math.sqrt(d)    # (B, E)
+            gate = torch.sigmoid(sim)
+            message = m_rot * gate.unsqueeze(-1)
         else:
             raise ValueError("Unknown message function `%s`" % self.message_func)
 
