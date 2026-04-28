@@ -1,0 +1,55 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+dataset:
+  class: TemporalICEWS14
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+# Eval the TRIX+RoPE2 checkpoint trained on TemporalICEWS14.
+# Architecture must match the training config exactly.
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 32
+    hidden_dims: [32, 32, 32]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 32
+    hidden_dims: [32, 32]
+    message_func: RoPE2
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 32
+    hidden_dims: [32, 32, 32, 32]
+    message_func: RoPE2
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: TransductiveInference
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 8
+  num_epoch: 0       # eval only, ckpt loaded
+  log_interval: 100
+  batch_per_epoch: null
+
+checkpoint: {{ ckpt }}

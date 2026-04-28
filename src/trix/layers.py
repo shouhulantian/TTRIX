@@ -20,8 +20,13 @@ class GeneralizedRelationalConv(MessagePassing):
     # TODO for compile() - doesn't work currently
     # propagate_type = {"edge_index": torch.LongTensor, "size": Tuple[int, int]}
 
+    # Learned-time message functions need a per-time embedding. Listed here so
+    # the layer wires up self.time / self.time_projection only when needed.
+    LEARNED_TIME_MSGS = ("tcomplx", "tntcomplx")
+
     def __init__(self, input_dim, output_dim, num_relation, query_input_dim, message_func="distmult",
-                 aggregate_func="pna", layer_norm=False, activation="relu", dependent=False, project_relations=False):
+                 aggregate_func="pna", layer_norm=False, activation="relu", dependent=False, project_relations=False,
+                 num_time=1, time_dependent=False, project_times=False):
         super(GeneralizedRelationalConv, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -31,6 +36,9 @@ class GeneralizedRelationalConv(MessagePassing):
         self.aggregate_func = aggregate_func
         self.dependent = dependent
         self.project_relations = project_relations
+        self.num_time = num_time
+        self.time_dependent = time_dependent
+        self.project_times = project_times
 
         if layer_norm:
             self.layer_norm = nn.LayerNorm(output_dim)
@@ -62,8 +70,44 @@ class GeneralizedRelationalConv(MessagePassing):
                     nn.Linear(input_dim, input_dim)
                 )
 
+        # Learned time embedding (tcomplx / tntcomplx). RoPE2 is parameter-free
+        # and doesn't need this -- it computes Δt rotation from edge_time directly.
+        # Initialization follows FITTER (alan_fitter): sinusoidal positional
+        # encoding (Transformer-style) so the time embedding starts as a
+        # meaningful periodic basis rather than random Gaussian, with two modes:
+        #   * project_times=False: learnable nn.Embedding seeded with PE,
+        #     can be fine-tuned (default for tcomplx / tntcomplx).
+        #   * project_times=True: fixed PE buffer + small per-layer projection
+        #     MLP, so the projection is the only learnable time-side weight.
+        if self.message_func in self.LEARNED_TIME_MSGS:
+            if time_dependent:
+                # time embedding as a projection of the query relation embedding
+                self.time_linear = nn.Linear(query_input_dim, num_time * input_dim)
+            else:
+                # Sinusoidal initialization (Transformer-style PE), defined in
+                # models_entity.precompute_trans_pe -- imported lazily here to
+                # avoid a circular import (models_entity itself imports layers).
+                from .models_entity import precompute_trans_pe
+                pe = precompute_trans_pe(num_time, input_dim)
+                if not self.project_times:
+                    # Learnable; initialise weight to sinusoidal PE.
+                    self.time = nn.Embedding(num_time, input_dim)
+                    with torch.no_grad():
+                        self.time.weight.copy_(pe)
+                else:
+                    # Fixed sinusoidal PE + learnable MLP projection.
+                    # `self.time` is unused in this mode; forward reads time_pe.
+                    self.time = None
+                    self.register_buffer("time_pe", pe)
+                    self.time_projection = nn.Sequential(
+                        nn.Linear(input_dim, input_dim),
+                        nn.ReLU(),
+                        nn.Linear(input_dim, input_dim)
+                    )
 
-    def forward(self, input, query, boundary, edge_index, edge_type, size, edge_weight=None):
+
+    def forward(self, input, query, boundary, edge_index, edge_type, size, edge_weight=None,
+                time_type=None, query_time=None):
         batch_size = len(query)
 
         if self.dependent:
@@ -74,23 +118,44 @@ class GeneralizedRelationalConv(MessagePassing):
                 # layer-specific relation features as a special embedding matrix unique to each layer
                 relation = self.relation.weight.expand(batch_size, -1, -1)
             else:
-                # NEW and only change: 
+                # NEW and only change:
                 # projecting relation features to unique features for this layer, then resizing for the current batch
                 relation = self.relation_projection(self.relation)
+
+        # Construct per-layer time embedding only for learned-time message functions.
+        # RoPE2 ignores `time` and uses query_time / time_type directly.
+        time = None
+        if self.message_func in self.LEARNED_TIME_MSGS and time_type is not None:
+            if self.time_dependent:
+                time = self.time_linear(query).view(batch_size, self.num_time, self.input_dim)
+            elif not self.project_times:
+                # Learnable embedding (sinusoidal-initialized in __init__).
+                time = self.time.weight.expand(batch_size, -1, -1)
+            else:
+                # Fixed sinusoidal PE buffer projected by the per-layer MLP.
+                time_query = self.time_pe.expand(batch_size, -1, -1)  # (B, T, dim)
+                time = self.time_projection(time_query)
+
         if edge_weight is None:
             edge_weight = torch.ones(len(edge_type), device=input.device)
 
         # note that we send the initial boundary condition (node states at layer0) to the message passing
         # correspond to Eq.6 on p5 in https://arxiv.org/pdf/2106.06935.pdf
+        # time / time_type / query_time are consulted by RoPE2 (parameter-free) and
+        # tcomplx / tntcomplx (learned time embedding indexed by time_type).
         output = self.propagate(input=input, relation=relation, boundary=boundary, edge_index=edge_index,
-                                edge_type=edge_type, size=size, edge_weight=edge_weight)
+                                edge_type=edge_type, size=size, edge_weight=edge_weight,
+                                time=time, time_type=time_type, query_time=query_time)
         return output
 
     def propagate(self, edge_index, size=None, **kwargs):
-        if kwargs["edge_weight"].requires_grad or self.message_func == "rotate":
-            # the rspmm cuda kernel only works for TransE and DistMult message functions
-            # otherwise we invoke separate message & aggregate functions
-            return super(GeneralizedRelationalConv, self).propagate(edge_index, size, **kwargs)
+        # Always take the explicit message + aggregate path. The rspmm fast
+        # kernel needs CUDA_HOME for JIT compilation (not set in this env),
+        # and the time-aware message functions (RoPE2 / tcomplx / tntcomplx)
+        # need per-edge logic the kernel can't express anyway. Matches
+        # alan_fitter's `propagate` policy of routing every supported message
+        # function through the explicit path.
+        return super(GeneralizedRelationalConv, self).propagate(edge_index, size, **kwargs)
 
         for hook in self._propagate_forward_pre_hooks.values():
             res = hook(self, (edge_index, size, kwargs))
@@ -126,7 +191,7 @@ class GeneralizedRelationalConv(MessagePassing):
 
         return out
 
-    def message(self, input_j, relation, boundary, edge_type):
+    def message(self, input_j, relation, boundary, edge_type, time=None, time_type=None, query_time=None):
         relation_j = relation.index_select(self.node_dim, edge_type)
 
         if self.message_func == "transe":
@@ -139,6 +204,59 @@ class GeneralizedRelationalConv(MessagePassing):
             message_re = x_j_re * r_j_re - x_j_im * r_j_im
             message_im = x_j_re * r_j_im + x_j_im * r_j_re
             message = torch.cat([message_re, message_im], dim=-1)
+        elif self.message_func == "tcomplx":
+            # FITTER tComplEx: full complex multiplication of three complex
+            # values (entity * relation * time) using their real / imag halves.
+            if time is None or time_type is None:
+                raise ValueError("tcomplx requires `time` (learned time embedding) "
+                                 "and `time_type` (per-edge time index) — make sure "
+                                 "data.edge_time is set and num_time is configured.")
+            time_j = time.index_select(self.node_dim, time_type)  # (B, E, dim)
+            x_j_re, x_j_im = input_j.chunk(2, dim=-1)
+            r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
+            t_j_re, t_j_im = time_j.chunk(2, dim=-1)
+            message_re = (x_j_re * r_j_re * t_j_re
+                          - x_j_im * r_j_im * t_j_re
+                          - x_j_im * r_j_re * t_j_im
+                          - x_j_re * r_j_im * t_j_im)
+            message_im = (x_j_im * r_j_re * t_j_re
+                          + x_j_re * r_j_im * t_j_re
+                          + x_j_re * r_j_re * t_j_im
+                          - x_j_im * r_j_im * t_j_im)
+            message = torch.cat([message_re, message_im], dim=-1)
+        elif self.message_func == "tntcomplx":
+            # FITTER TNTComplEx: time-modulated relation r' = r * (1 + t),
+            # then standard complex multiplication of x and r'.
+            if time is None or time_type is None:
+                raise ValueError("tntcomplx requires `time` and `time_type` — see tcomplx docstring.")
+            time_j = time.index_select(self.node_dim, time_type)  # (B, E, dim)
+            x_j_re, x_j_im = input_j.chunk(2, dim=-1)
+            r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
+            t_j_re, t_j_im = time_j.chunk(2, dim=-1)
+            # rt = (re*re, im*re, re*im, im*im) of relation * time
+            rt = r_j_re * t_j_re, r_j_im * t_j_re, r_j_re * t_j_im, r_j_im * t_j_im
+            # full_rel = r + r*t = ((rt[0] - rt[3]) + r_j_re, (rt[1] + rt[2]) + r_j_im)
+            full_rel_re = (rt[0] - rt[3]) + r_j_re
+            full_rel_im = (rt[1] + rt[2]) + r_j_im
+            message_re = x_j_re * full_rel_re - x_j_im * full_rel_im
+            message_im = x_j_im * full_rel_re + x_j_re * full_rel_im
+            message = torch.cat([message_re, message_im], dim=-1)
+        elif self.message_func == "RoPE2":
+            # rotate-style complex multiplication then per-edge Δt rotation.
+            # query_time: (B,) -- per-query timestamps
+            # time_type:  (E,) -- per-edge timestamps (must be on Data.edge_time)
+            if query_time is None or time_type is None:
+                raise ValueError("RoPE2 requires query_time and time_type; "
+                                 "make sure data.edge_time is set and the model "
+                                 "passes batch[..., 3] as query_time.")
+            x_j_re, x_j_im = input_j.chunk(2, dim=-1)
+            r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
+            message_re = x_j_re * r_j_re - x_j_im * r_j_im
+            message_im = x_j_im * r_j_re + x_j_re * r_j_im
+            message = torch.cat([message_re, message_im], dim=-1)
+            # time_delta shape (B, E): broadcasts against input_j shape (B, E, dim)
+            time_delta = query_time.unsqueeze(1) - time_type.unsqueeze(0)
+            message = self.rope_relative(message, time_delta.to(message.dtype))
         else:
             raise ValueError("Unknown message function `%s`" % self.message_func)
 
@@ -146,6 +264,32 @@ class GeneralizedRelationalConv(MessagePassing):
         message = torch.cat([message, boundary], dim=self.node_dim)  # (num_edges + num_nodes, batch_size, input_dim)
 
         return message
+
+    def rope_relative(self, x, d):
+        """Apply RoPE rotation with relative time-distance d (no learned freq).
+
+        Args:
+          x: (..., dim) — the message tensor; dim must be even.
+          d: tensor with x's leading shape minus the last dim. Treated as a
+             relative timestep.
+
+        Empty edge sets (num_edges=0) can occur in inductive subgraphs; handle
+        that case by short-circuiting since view(..., -1, 2) is undefined for
+        zero-element tensors.
+        """
+        if x.numel() == 0:
+            return x
+        dim = x.shape[-1]
+        assert dim % 2 == 0, "RoPE2 requires even hidden dim"
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, device=x.device, dtype=x.dtype) / dim))
+        theta = d.unsqueeze(-1) * inv_freq  # (..., dim/2)
+        cos = torch.repeat_interleave(torch.cos(theta), 2, dim=-1)
+        sin = torch.repeat_interleave(torch.sin(theta), 2, dim=-1)
+
+        x_view = x.view(*x.shape[:-1], -1, 2)
+        x1, x2 = x_view[..., 0], x_view[..., 1]
+        rotated = torch.stack((-x2, x1), dim=-1).reshape(*x_view.shape[:-2], -1)
+        return x * cos + rotated * sin
 
     def aggregate(self, input, edge_weight, index, dim_size):
         # augment aggregation index with self-loops for the boundary condition

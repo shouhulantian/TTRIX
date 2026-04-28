@@ -1650,19 +1650,31 @@ class GDELTIndT100Static(InductiveDataset):
         return "GDELTIndT100Static()"
 
 
-class GDELTIndT100Temporal(InductiveDataset):
-    """Same INGRAM 4-file layout as GDELTIndT100Static, but timestamps are
-    parsed and stored as edge_time / target_edge_time so the evaluation loop
-    can use temporal_strict_negative_mask (time-aware filtered ranking).
+class InductiveTemporalDatasetINGRAM(InductiveDataset):
+    """INGRAM-style fully-inductive temporal KG dataset (4-file layout).
 
-    The model still sees only (h, r, t) — the time vector is consulted only by
-    the filter when ranking, so time-aware vs static is the only thing that
-    differs at eval time.
+    Raw layout under ``<root>/<name>/raw/``:
+        train.txt -- G_tr training quadruples (h, r, t, date)
+        msg.txt   -- G_inf observed graph (disjoint vocab from G_tr)
+        valid.txt -- G_tr held-out validation queries (transductive valid)
+        test.txt  -- G_inf held-out inductive test queries
+
+    Each Data object exposes:
+        edge_index, edge_type            -- message-passing graph (with inverse)
+        edge_time                        -- per-edge timestamp (int day-ordinal offset)
+        target_edge_index, target_edge_type, target_edge_time -- query edges
+        num_relations                    -- 2 * num_unique_relations (forward + inverse)
+        num_time                         -- max time index + 1, sized for RoPE2 freq table
+
+    Temporal info (edge_time / target_edge_time / num_time) is available to:
+      (a) message-passing layers when message_func='RoPE2' or similar (Δt rotation),
+      (b) the time-aware ranking filter (temporal_strict_negative_mask).
+
+    Subclasses set ``name`` (the directory name under root).
     """
 
-    name = "GDELTIndT_100"
     delimiter = "\t"
-    valid_on_inf = False
+    valid_on_inf = False  # valid is held out from G_tr, not G_inf
 
     def __init__(self, root, transform=None, pre_transform=build_relation_graph, **kwargs):
         InMemoryDataset.__init__(self, root, transform, pre_transform)
@@ -1719,10 +1731,15 @@ class GDELTIndT100Temporal(InductiveDataset):
         num_inf_nodes = test_res["num_node"]
         num_inf_rels = test_res["num_relation"]
 
-        # Shared min-date so train and test timestamps live in the same offset space
+        # Shared min-date so all four splits live in the same offset space.
+        # Day-ordinal offsets are absolute; same encoding works across the
+        # disjoint G_tr / G_inf vocabularies.
         all_dates = (train_res["timestamps"] + valid_res["timestamps"]
                      + inf_res["timestamps"] + test_res["timestamps"])
         min_ord = min(self._parse_date(d) for d in all_dates)
+        max_ord = max(self._parse_date(d) for d in all_dates)
+        num_time = int(max_ord - min_ord + 1)
+
         def to_t(stamps):
             return torch.tensor([self._parse_date(d) - min_ord for d in stamps], dtype=torch.long)
 
@@ -1748,20 +1765,24 @@ class GDELTIndT100Temporal(InductiveDataset):
         valid_q = torch.tensor(valid_res["triplets"], dtype=torch.long)  # (n, 3) as (h, t, r)
         test_q = torch.tensor(test_res["triplets"], dtype=torch.long)
 
+        # num_time is wrapped in a tensor so InMemoryDataset.collate keeps it
+        # accessible as a 0-dim attribute (matches alan_fitter convention).
+        num_time_t = torch.tensor([num_time])
+
         train_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
                           num_nodes=num_train_nodes,
                           target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
-                          num_relations=num_train_rels * 2,
+                          num_relations=num_train_rels * 2, num_time=num_time_t,
                           edge_time=train_fact_time, target_edge_time=train_t)
         valid_data = Data(edge_index=train_fact_index, edge_type=train_fact_type,
                           num_nodes=num_train_nodes,
                           target_edge_index=valid_q[:, :2].T, target_edge_type=valid_q[:, 2],
-                          num_relations=num_train_rels * 2,
+                          num_relations=num_train_rels * 2, num_time=num_time_t,
                           edge_time=train_fact_time, target_edge_time=valid_t_time)
         test_data = Data(edge_index=inf_edge_index_bi, edge_type=inf_etypes_bi,
                          num_nodes=num_inf_nodes,
                          target_edge_index=test_q[:, :2].T, target_edge_type=test_q[:, 2],
-                         num_relations=num_inf_rels * 2,
+                         num_relations=num_inf_rels * 2, num_time=num_time_t,
                          edge_time=inf_time_bi, target_edge_time=test_t_time)
 
         if self.pre_transform is not None:
@@ -1788,4 +1809,199 @@ class GDELTIndT100Temporal(InductiveDataset):
         return "data.pt"
 
     def __repr__(self):
-        return "GDELTIndT100Temporal()"
+        return f"{type(self).__name__}()"
+
+
+class GDELTIndT100Temporal(InductiveTemporalDatasetINGRAM):
+    """Fully-inductive GDELT split (V/R/T disjoint), temporal version."""
+    name = "GDELTIndT_100"
+
+
+class ICEWS14IndT100Temporal(InductiveTemporalDatasetINGRAM):
+    """Fully-inductive ICEWS14 split (V/R/T disjoint), temporal version."""
+    name = "ICEWS14IndT_100"
+
+
+class ICEWS0515IndT100Temporal(InductiveTemporalDatasetINGRAM):
+    """Fully-inductive ICEWS0515 split (V/R/T disjoint), temporal version."""
+    name = "ICEWS0515IndT_100"
+
+
+class TemporalGDELT(TemporalTransductiveDataset):
+    """Transductive GDELT (full) with timestamps stored for time-aware filter
+    and message-passing Δt rotation.
+    """
+    name = "temporal_gdelt"
+    store_timestamps = True
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "GDELT", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "temporal_gdelt", "processed")
+
+    def _parse_date(self, date_str):
+        # GDELT uses the same YYYY-MM-DD format as ICEWS
+        from datetime import datetime
+        return int(datetime.strptime(date_str, "%Y-%m-%d").toordinal())
+
+    # Reuse TemporalICEWS14.process via inheritance through this minimal subclass:
+    # behavior is identical, only raw_dir / processed_dir differ.
+    process = TemporalICEWS14.process
+
+
+class JointTemporalDataset(InMemoryDataset):
+    """Joint temporal KG dataset with SHARED time vocabulary across graphs.
+
+    Scans every source dataset's raw files, builds a single chronologically-
+    sorted (date -> day-ordinal-offset) map, and re-loads each source under
+    that shared map. Dates that appear in multiple sources (e.g. 2014-06-01
+    in both ICEWS14 and ICEWS0515) get the same time index everywhere.
+
+    Output format mirrors JointDataset: a 3-tuple
+    ``(train_list, valid_list, test_list)`` where each list contains one PyG
+    ``Data`` per source graph. This matches MultiGraphPretraining's contract.
+
+    For Δt-only message functions (RoPE2) the shared encoding is mathematically
+    equivalent to per-source indexing, but for absolute-time message functions
+    (tcomplx, TTransE) it is required for correctness.
+    """
+
+    datasets_map = {
+        "ICEWS14":   "TemporalICEWS14",
+        "ICEWS0515": "TemporalICEWS0515",
+        "GDELT":     "TemporalGDELT",
+    }
+
+    def __init__(self, root, graphs, transform=None, pre_transform=build_relation_graph, **kwargs):
+        self.graphs_spec = list(graphs)
+        self.num_graphs_spec = len(graphs)
+        super().__init__(root, transform, pre_transform)
+        self.data = torch.load(self.processed_paths[0], weights_only=False)
+
+    @property
+    def raw_dir(self):
+        key = f"{self.num_graphs_spec}g_" + "_".join(self.graphs_spec)
+        return os.path.join(self.root, "joint_t", key, "raw")
+
+    @property
+    def processed_dir(self):
+        key = f"{self.num_graphs_spec}g_" + "_".join(self.graphs_spec)
+        return os.path.join(self.root, "joint_t", key, "processed")
+
+    @property
+    def raw_file_names(self):
+        return []
+
+    @property
+    def processed_file_names(self):
+        return "data.pt"
+
+    def download(self):
+        pass  # source datasets handle their own downloads when instantiated
+
+    @staticmethod
+    def _parse_date(date_str):
+        from datetime import datetime
+        return int(datetime.strptime(date_str, "%Y-%m-%d").toordinal())
+
+    @classmethod
+    def _collect_dates(cls, raw_path):
+        """Extract the 4th column (ISO date string) from a raw quadruple file."""
+        dates = set()
+        with open(raw_path, "r", encoding="utf-8") as fin:
+            for line in fin:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 4:
+                    parts = line.split()
+                    if len(parts) < 4:
+                        continue
+                dates.add(parts[3])
+        return dates
+
+    def process(self):
+        import sys as _sys
+        this_module = _sys.modules[__name__]
+        sources = []
+        for name in self.graphs_spec:
+            cls_name = self.datasets_map[name]
+            ds_cls = getattr(this_module, cls_name)
+            sources.append(ds_cls(root=self.root))
+
+        # Phase 1: build shared time vocab (day-ordinal offsets)
+        all_dates = set()
+        for src in sources:
+            for raw_name in src.raw_file_names:
+                raw_path = os.path.join(src.raw_dir, raw_name)
+                if not os.path.exists(raw_path):
+                    continue
+                all_dates |= self._collect_dates(raw_path)
+        date_ords = {d: self._parse_date(d) for d in all_dates}
+        min_ord = min(date_ords.values())
+        max_ord = max(date_ords.values())
+        num_time = int(max_ord - min_ord + 1)
+        num_time_t = torch.tensor([num_time])
+
+        # Phase 2: rebuild each source's Data objects with the shared time map
+        train_list, valid_list, test_list = [], [], []
+        for src in sources:
+            # Each source should already be a TemporalTransductiveDataset
+            # whose load_file returns timestamps when store_timestamps=True.
+            raw_paths = src.raw_paths[:3]  # train, valid, test
+            train_res = src.load_file(raw_paths[0], inv_entity_vocab={}, inv_rel_vocab={})
+            valid_res = src.load_file(raw_paths[1], train_res["inv_entity_vocab"], train_res["inv_rel_vocab"])
+            test_res  = src.load_file(raw_paths[2], train_res["inv_entity_vocab"], train_res["inv_rel_vocab"])
+
+            num_node = test_res["num_node"]
+            num_rel = test_res["num_relation"]
+
+            def to_t(stamps):
+                return torch.tensor([date_ords[d] - min_ord for d in stamps], dtype=torch.long)
+
+            train_t = to_t(train_res["timestamps"])
+            valid_t_time = to_t(valid_res["timestamps"])
+            test_t_time = to_t(test_res["timestamps"])
+
+            train_q = train_res["triplets"]
+            valid_q = valid_res["triplets"]
+            test_q  = test_res["triplets"]
+
+            train_target_edges = torch.tensor([[t[0], t[1]] for t in train_q], dtype=torch.long).t()
+            train_target_etypes = torch.tensor([t[2] for t in train_q])
+            valid_edges = torch.tensor([[t[0], t[1]] for t in valid_q], dtype=torch.long).t()
+            valid_etypes = torch.tensor([t[2] for t in valid_q])
+            test_edges  = torch.tensor([[t[0], t[1]] for t in test_q], dtype=torch.long).t()
+            test_etypes = torch.tensor([t[2] for t in test_q])
+
+            train_edges_bi = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+            train_etypes_bi = torch.cat([train_target_etypes, train_target_etypes + num_rel])
+            train_times_bi = torch.cat([train_t, train_t])
+
+            train_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                              target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                              num_relations=num_rel * 2, num_time=num_time_t,
+                              edge_time=train_times_bi, target_edge_time=train_t)
+            valid_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                              target_edge_index=valid_edges, target_edge_type=valid_etypes,
+                              num_relations=num_rel * 2, num_time=num_time_t,
+                              edge_time=train_times_bi, target_edge_time=valid_t_time)
+            test_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                             target_edge_index=test_edges, target_edge_type=test_etypes,
+                             num_relations=num_rel * 2, num_time=num_time_t,
+                             edge_time=train_times_bi, target_edge_time=test_t_time)
+
+            if self.pre_transform is not None:
+                train_data = self.pre_transform(train_data)
+                valid_data.relation_graph = train_data.relation_graph
+                test_data.relation_graph = train_data.relation_graph
+
+            train_list.append(train_data)
+            valid_list.append(valid_data)
+            test_list.append(test_data)
+
+        torch.save((train_list, valid_list, test_list), self.processed_paths[0])
+
+    def __repr__(self):
+        return f"JointTemporalDataset(graphs={self.graphs_spec})"

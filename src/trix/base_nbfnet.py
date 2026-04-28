@@ -55,6 +55,10 @@ class BaseNBFNet(nn.Module):
         data = copy.copy(data)
         data.edge_index = data.edge_index[:, mask]
         data.edge_type = data.edge_type[mask]
+        # Keep edge_time aligned with edge_index so RoPE2 / tcomplx / tntcomplx
+        # see consistent (E,) shapes after edge dropout.
+        if hasattr(data, "edge_time") and data.edge_time is not None:
+            data.edge_time = data.edge_time[mask]
         return data
 
     def negative_sample_to_tail(self, h_index, t_index, r_index, num_direct_rel):

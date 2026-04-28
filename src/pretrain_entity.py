@@ -256,7 +256,10 @@ if __name__ == "__main__":
     model = TRIX(
         rel_model_cfg=cfg.model.relation_model,
         entity_model_1_cfg=cfg.model.entity_model_1,
-        entity_model_2_cfg=cfg.model.entity_model_2
+        entity_model_2_cfg=cfg.model.entity_model_2,
+        alpha=cfg.model.get("alpha", 0.0),
+        window_size=cfg.model.get("window_size", -1),
+        window_mode=cfg.model.get("window_mode", "symmetric"),
     )
 
     if "checkpoint" in cfg:

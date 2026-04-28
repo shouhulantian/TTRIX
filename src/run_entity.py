@@ -18,7 +18,10 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from trix import tasks, util
 from trix.models_entity import TRIX
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None  # only used by the relation-similarity visualizer; not on main path
 import numpy as np
 
 separator = ">" * 30
@@ -32,7 +35,14 @@ def train_and_validate(cfg, model, train_data, valid_data, device, logger, filte
     world_size = util.get_world_size()
     rank = util.get_rank()
 
-    train_triplets = torch.cat([train_data.target_edge_index, train_data.target_edge_type.unsqueeze(0)]).t()
+    # Include target_edge_time as a 4th column if the dataset is temporal.
+    # Downstream (negative_sampling, model.forward) auto-detect 4-column batches.
+    if hasattr(train_data, "target_edge_time") and train_data.target_edge_time is not None:
+        train_triplets = torch.cat([train_data.target_edge_index,
+                                    train_data.target_edge_type.unsqueeze(0),
+                                    train_data.target_edge_time.unsqueeze(0)]).t()
+    else:
+        train_triplets = torch.cat([train_data.target_edge_index, train_data.target_edge_type.unsqueeze(0)]).t()
     sampler = torch_data.DistributedSampler(train_triplets, world_size, rank)
     train_loader = torch_data.DataLoader(train_triplets, cfg.train.batch_size, sampler=sampler)
 
@@ -45,7 +55,7 @@ def train_and_validate(cfg, model, train_data, valid_data, device, logger, filte
     logger.warning(f"Number of parameters: {num_params}")
 
     if world_size > 1:
-        parallel_model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
+        parallel_model = nn.parallel.DistributedDataParallel(model, device_ids=[device], find_unused_parameters=True)
     else:
         parallel_model = model
 
@@ -144,20 +154,26 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
     num_negatives = []
     tail_rankings, num_tail_negs = [], []
     for batch in test_loader:
+        # Keep `batch` as 4-col (h, t, r, time) so the model and all_negative
+        # can thread time through to RoPE2 / tcomplx / tntcomplx layers. The
+        # strict / temporal filter helpers expect a 3-col triple_batch instead.
         if has_time:
             batch_time = batch[:, 3]
-            batch = batch[:, :3]
+            triple_batch = batch[:, :3]
+        else:
+            batch_time = None
+            triple_batch = batch
         t_batch, h_batch = tasks.all_negative(test_data, batch)
         t_pred = model(test_data, t_batch)
         h_pred = model(test_data, h_batch)
 
         if has_time and filtered_data is not None and hasattr(filtered_data, 'edge_time'):
-            t_mask, h_mask = tasks.temporal_strict_negative_mask(filtered_data, batch, batch_time)
+            t_mask, h_mask = tasks.temporal_strict_negative_mask(filtered_data, triple_batch, batch_time)
         elif filtered_data is None:
-            t_mask, h_mask = tasks.strict_negative_mask(test_data, batch)
+            t_mask, h_mask = tasks.strict_negative_mask(test_data, triple_batch)
         else:
-            t_mask, h_mask = tasks.strict_negative_mask(filtered_data, batch)
-        pos_h_index, pos_t_index, pos_r_index = batch.t()
+            t_mask, h_mask = tasks.strict_negative_mask(filtered_data, triple_batch)
+        pos_h_index, pos_t_index, pos_r_index = triple_batch.t()
         t_ranking = tasks.compute_ranking(t_pred, pos_t_index, t_mask)
         h_ranking = tasks.compute_ranking(h_pred, pos_h_index, h_mask)
         num_t_negative = t_mask.sum(dim=-1)
@@ -304,10 +320,16 @@ if __name__ == "__main__":
         short_valid.target_edge_index = short_valid.target_edge_index[:, mask]
         short_valid.target_edge_type = short_valid.target_edge_type[mask]
 
+    # Optional TIGER-style local-window mixing on entity_model_2.
+    # Configs can declare alpha / window_size / window_mode at the top level
+    # of cfg.model; defaults preserve the vanilla TRIX (global-only) behavior.
     model = TRIX(
         rel_model_cfg=cfg.model.relation_model,
         entity_model_1_cfg=cfg.model.entity_model_1,
-        entity_model_2_cfg=cfg.model.entity_model_2
+        entity_model_2_cfg=cfg.model.entity_model_2,
+        alpha=cfg.model.get("alpha", 0.0),
+        window_size=cfg.model.get("window_size", -1),
+        window_mode=cfg.model.get("window_mode", "symmetric"),
     )
 
     if "checkpoint" in cfg and cfg.checkpoint is not None:

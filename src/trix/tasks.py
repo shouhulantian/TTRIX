@@ -52,11 +52,22 @@ def negative_sampling_relation(data, batch, num_negative, strict=True):
 
 def negative_sampling(data, batch, num_negative, strict=True):
     batch_size = len(batch)
-    pos_h_index, pos_t_index, pos_r_index = batch.t()
+    # Batch is (B, 3) or (B, 4) -- last column is per-fact timestamp for
+    # temporal datasets. Time is shared by all negatives of a positive, so we
+    # just broadcast it like h_index/r_index.
+    cols = batch.shape[-1]
+    if cols == 4:
+        pos_h_index, pos_t_index, pos_r_index, pos_time_index = batch.t()
+        # call strict_negative_mask with the 3-col view -- it doesn't use time
+        triple_batch = batch[:, :3]
+    else:
+        pos_h_index, pos_t_index, pos_r_index = batch.t()
+        pos_time_index = None
+        triple_batch = batch
 
     # strict negative sampling vs random negative sampling
     if strict:
-        t_mask, h_mask = strict_negative_mask(data, batch)
+        t_mask, h_mask = strict_negative_mask(data, triple_batch)
         t_mask = t_mask[:batch_size // 2]
         neg_t_candidate = t_mask.nonzero()[:, 1]
         num_t_candidate = t_mask.sum(dim=-1)
@@ -84,20 +95,37 @@ def negative_sampling(data, batch, num_negative, strict=True):
     t_index[:batch_size // 2, 1:] = neg_t_index
     h_index[batch_size // 2:, 1:] = neg_h_index
 
+    if pos_time_index is not None:
+        time_index = pos_time_index.unsqueeze(-1).repeat(1, num_negative + 1)
+        return torch.stack([h_index, t_index, r_index, time_index], dim=-1)
     return torch.stack([h_index, t_index, r_index], dim=-1)
 
 
 def all_negative(data, batch):
-    pos_h_index, pos_t_index, pos_r_index = batch.t()
+    cols = batch.shape[-1]
+    if cols == 4:
+        pos_h_index, pos_t_index, pos_r_index, pos_time_index = batch.t()
+    else:
+        pos_h_index, pos_t_index, pos_r_index = batch.t()
+        pos_time_index = None
+
     r_index = pos_r_index.unsqueeze(-1).expand(-1, data.num_nodes)
     # generate all negative tails for this batch
     all_index = torch.arange(data.num_nodes, device=batch.device)
     h_index, t_index = torch.meshgrid(pos_h_index, all_index, indexing="ij")  # indexing "xy" would return transposed
-    t_batch = torch.stack([h_index, t_index, r_index], dim=-1)
+    if pos_time_index is not None:
+        time_index = pos_time_index.unsqueeze(-1).expand(-1, data.num_nodes)
+        t_batch = torch.stack([h_index, t_index, r_index, time_index], dim=-1)
+    else:
+        t_batch = torch.stack([h_index, t_index, r_index], dim=-1)
     # generate all negative heads for this batch
     all_index = torch.arange(data.num_nodes, device=batch.device)
     t_index, h_index = torch.meshgrid(pos_t_index, all_index, indexing="ij")
-    h_batch = torch.stack([h_index, t_index, r_index], dim=-1)
+    if pos_time_index is not None:
+        time_index = pos_time_index.unsqueeze(-1).expand(-1, data.num_nodes)
+        h_batch = torch.stack([h_index, t_index, r_index, time_index], dim=-1)
+    else:
+        h_batch = torch.stack([h_index, t_index, r_index], dim=-1)
 
     return t_batch, h_batch
 
