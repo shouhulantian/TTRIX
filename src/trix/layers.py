@@ -29,7 +29,7 @@ class GeneralizedRelationalConv(MessagePassing):
     # Time-aware message functions that need the slow message+aggregate path
     # (per-edge logic the rspmm fast kernel can't express) plus access to
     # query_time / time_type kwargs.
-    TIME_AWARE_MSGS = ("RoPE2", "RoPE2_decay", "tcomplx", "tntcomplx")
+    TIME_AWARE_MSGS = ("RoPE2", "RoPE2_decay", "RoPE2_decay_q", "tcomplx", "tntcomplx")
 
     def __init__(self, input_dim, output_dim, num_relation, query_input_dim, message_func="distmult",
                  aggregate_func="pna", layer_norm=False, activation="relu", dependent=False, project_relations=False,
@@ -129,7 +129,7 @@ class GeneralizedRelationalConv(MessagePassing):
 
 
     def forward(self, input, query, boundary, edge_index, edge_type, size, edge_weight=None,
-                time_type=None, query_time=None):
+                time_type=None, query_time=None, query_head_state=None):
         batch_size = len(query)
 
         if self.dependent:
@@ -167,7 +167,8 @@ class GeneralizedRelationalConv(MessagePassing):
         # tcomplx / tntcomplx (learned time embedding indexed by time_type).
         output = self.propagate(input=input, relation=relation, boundary=boundary, edge_index=edge_index,
                                 edge_type=edge_type, size=size, edge_weight=edge_weight,
-                                time=time, time_type=time_type, query_time=query_time)
+                                time=time, time_type=time_type, query_time=query_time,
+                                query=query, query_head_state=query_head_state)
         return output
 
     def propagate(self, edge_index, size=None, **kwargs):
@@ -213,7 +214,8 @@ class GeneralizedRelationalConv(MessagePassing):
 
         return out
 
-    def message(self, input_j, relation, boundary, edge_type, time=None, time_type=None, query_time=None):
+    def message(self, input_j, relation, boundary, edge_type, time=None, time_type=None, query_time=None,
+                query=None, query_head_state=None):
         relation_j = relation.index_select(self.node_dim, edge_type)
 
         if self.message_func == "transe":
@@ -281,10 +283,10 @@ class GeneralizedRelationalConv(MessagePassing):
             message = self.rope_relative(message, time_delta.to(message.dtype))
         elif self.message_func == "RoPE2_decay":
             # RoPE2 phase rotation + RoPE-attention locality gate.
-            # The rotated message's alignment with the relation embedding
-            # naturally encodes locality through RoPE's relative-rotation
-            # property: small |Δt| → small rotation → high alignment;
-            # large |Δt| → phases scramble → low alignment.
+            # Gate uses the per-edge relation embedding `relation_j`:
+            #   sim = (m_rot · relation_j) / sqrt(d)
+            # i.e. asks "does the rotated content align with this edge's
+            # own relation type?" -- locality from RoPE rotation only.
             if query_time is None or time_type is None:
                 raise ValueError("RoPE2_decay requires query_time and time_type; "
                                  "make sure data.edge_time is set and the model "
@@ -297,11 +299,42 @@ class GeneralizedRelationalConv(MessagePassing):
             time_delta = query_time.unsqueeze(1) - time_type.unsqueeze(0)
             time_delta_f = time_delta.to(message.dtype)
             m_rot = self.rope_relative(message, time_delta_f)        # (B, E, dim)
-            # RoPE-attention gate: dot-product similarity between the
-            # rotated message and the per-edge relation embedding,
-            # normalised by sqrt(d), squashed by sigmoid.
             d = m_rot.size(-1)
             sim = (m_rot * relation_j).sum(dim=-1) / math.sqrt(d)    # (B, E)
+            gate = torch.sigmoid(sim)
+            message = m_rot * gate.unsqueeze(-1)
+        elif self.message_func == "RoPE2_decay_q":
+            # RoPE2 phase rotation + query-conditioned RoPE-attention gate.
+            # Mirror of LLM RoPE attention:
+            #     Q = query head's current state (s_q) + query relation (r_q)
+            #     K = m_rot                              (Δt-rotated edge content)
+            #     gate = sigmoid((m_rot · Q) / sqrt(d))
+            # Query time t_q enters via the Δt rotation in K. At layer 0,
+            # query_head_state equals `query` (boundary scatter of the
+            # query relation at h_index), so Q ≈ 2 * query and the gate
+            # is essentially relation-aligned. From layer 1 onward,
+            # query_head_state evolves as messages propagate back to h_q,
+            # so the gate adapts: deeper layers gate on what h_q has
+            # accumulated, not just the seed relation.
+            if query_time is None or time_type is None:
+                raise ValueError("RoPE2_decay_q requires query_time and time_type.")
+            if query is None or query_head_state is None:
+                raise ValueError("RoPE2_decay_q requires query and query_head_state "
+                                 "(per-batch query relation embedding and per-batch "
+                                 "h_q's current state). Make sure EntityNet.bellmanford "
+                                 "passes both into layer.forward.")
+            x_j_re, x_j_im = input_j.chunk(2, dim=-1)
+            r_j_re, r_j_im = relation_j.chunk(2, dim=-1)
+            message_re = x_j_re * r_j_re - x_j_im * r_j_im
+            message_im = x_j_im * r_j_re + x_j_re * r_j_im
+            message = torch.cat([message_re, message_im], dim=-1)
+            time_delta = query_time.unsqueeze(1) - time_type.unsqueeze(0)
+            time_delta_f = time_delta.to(message.dtype)
+            m_rot = self.rope_relative(message, time_delta_f)        # (B, E, dim)
+            d = m_rot.size(-1)
+            # Q bundles query head state and query relation (Δt is in K).
+            Q = (query_head_state + query).unsqueeze(1)              # (B, 1, dim)
+            sim = (m_rot * Q).sum(dim=-1) / math.sqrt(d)             # (B, E)
             gate = torch.sigmoid(sim)
             message = m_rot * gate.unsqueeze(-1)
         else:

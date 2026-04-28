@@ -291,6 +291,9 @@ class EntityNet(BaseNBFNet):
     def bellmanford(self, data, h_index, r_index, separate_grad=False,
                     time_type=None, query_time=None):
         batch_size = len(r_index)
+        # Per-batch index used to gather query head's evolving state per layer
+        # (used by RoPE2_decay_q for query-conditioned RoPE-attention gating).
+        batch_idx = torch.arange(batch_size, device=h_index.device)
 
         # initialize queries (relation types of the given triples)
         query = self.query[torch.arange(batch_size, device=r_index.device), r_index]
@@ -315,10 +318,14 @@ class EntityNet(BaseNBFNet):
                 edge_weight = edge_weight.clone().requires_grad_()
 
             # Bellman-Ford iteration, we send the original boundary condition in addition to the updated node states
-            # time_type / query_time are only consulted by the time-aware message functions
-            # (RoPE2, tcomplx, tntcomplx); time-agnostic layers ignore them.
+            # time_type / query_time / query_head_state are only consulted by the time-aware message
+            # functions (RoPE2, RoPE2_decay, RoPE2_decay_q, tcomplx, tntcomplx); other layers ignore them.
+            # query_head_state = current state of the query head h_q at this layer; for RoPE2_decay_q
+            # this is the entity-side component of the LLM-attention-style query representation.
+            query_head_state = layer_input[batch_idx, h_index]   # (B, dim)
             hidden = layer(layer_input, query, boundary, data.edge_index, data.edge_type, size, edge_weight,
-                           time_type=time_type, query_time=query_time)
+                           time_type=time_type, query_time=query_time,
+                           query_head_state=query_head_state)
             if self.short_cut and hidden.shape == layer_input.shape:
                 # residual connection here
                 hidden = hidden + layer_input
