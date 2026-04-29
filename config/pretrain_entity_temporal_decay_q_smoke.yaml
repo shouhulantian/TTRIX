@@ -1,15 +1,15 @@
 output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
 
-dataset:
-  class: TemporalICEWS14
-  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+# Smoke test for pretrain_entity_temporal.py + JointTemporalDataset +
+# RoPE2_decay_q. Identical architecture and dataset to
+# pretrain_entity_temporal_decay_q.yaml; only num_epoch / batch_per_epoch /
+# fast_test are slashed so the run completes in a few minutes and validates
+# the full path: data load -> DDP forward/backward -> test().
 
-# T-RoPE-Gq variant: query-conditioned RoPE-attention gate.
-#     Q = query_head_state + query_relation
-#     K = m_rot
-#     gate = sigmoid((m_rot · Q) / sqrt(d))
-# A/B target: run_entity_temporal_icews14_rope2_decay.yaml (same arch
-# but gate uses relation_j instead of query_head_state + query).
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
 
 model:
   class: TRIX
@@ -39,11 +39,11 @@ model:
     layer_norm: yes
 
 task:
-  name: TransductiveInference
+  name: MultiGraphPretraining
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1
-  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
 
 optimizer:
   class: AdamW
@@ -51,7 +51,12 @@ optimizer:
 
 train:
   gpus: {{ gpus }}
-  batch_size: 8
-  num_epoch: 10
-  log_interval: 100
-  batch_per_epoch: 4000
+  batch_size: 1     # A40 (44 GB) can't fit bs=4 with ICEWS0515 graph
+                    # under RoPE2_decay_q (single-graph ICEWS0515+decay
+                    # uses bs=2 on A100/80 GB). Smoke goal is code path
+                    # validation, not throughput.
+  num_epoch: 1
+  log_interval: 20
+  batch_per_epoch: 60
+  fast_test: 200
+  sampling: equal

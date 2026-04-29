@@ -150,7 +150,7 @@ def build_dataset(cfg):
 
     if get_rank() == 0:
         logger.warning("%s dataset" % (cls if "version" not in cfg.dataset else f'{cls}({cfg.dataset.version})'))
-        if cls != "JointDataset":
+        if cls not in ("JointDataset", "JointTemporalDataset"):
             logger.warning("#train: %d, #valid: %d, #test: %d" %
                         (dataset[0].target_edge_index.shape[1], dataset[1].target_edge_index.shape[1],
                             dataset[2].target_edge_index.shape[1]))

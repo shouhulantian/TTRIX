@@ -1,15 +1,11 @@
 output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
 
 dataset:
-  class: TemporalICEWS14
+  class: GDELTIndT100Temporal
   root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
 
-# T-RoPE-Gq variant: query-conditioned RoPE-attention gate.
-#     Q = query_head_state + query_relation
-#     K = m_rot
-#     gate = sigmoid((m_rot · Q) / sqrt(d))
-# A/B target: run_entity_temporal_icews14_rope2_decay.yaml (same arch
-# but gate uses relation_j instead of query_head_state + query).
+# Architecture must match the 27037 training run exactly
+# (TRIX dim=64, both entity NBFNets use RoPE2_decay_q).
 
 model:
   class: TRIX
@@ -39,7 +35,7 @@ model:
     layer_norm: yes
 
 task:
-  name: TransductiveInference
+  name: InductiveInference
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1
@@ -52,6 +48,8 @@ optimizer:
 train:
   gpus: {{ gpus }}
   batch_size: 8
-  num_epoch: 10
+  num_epoch: 0      # zero-shot: skip training, eval only
   log_interval: 100
-  batch_per_epoch: 4000
+  batch_per_epoch: null
+
+checkpoint: {{ ckpt }}

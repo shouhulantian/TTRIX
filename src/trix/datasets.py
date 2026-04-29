@@ -1993,9 +1993,13 @@ class JointTemporalDataset(InMemoryDataset):
                              edge_time=train_times_bi, target_edge_time=test_t_time)
 
             if self.pre_transform is not None:
+                # build_relation_graph writes graph.relation_adj (TRIX's
+                # 4-subgraph hh/ht/th/tt role-aware structure). Share across
+                # splits since they all use train_data.edge_index as the
+                # message graph.
                 train_data = self.pre_transform(train_data)
-                valid_data.relation_graph = train_data.relation_graph
-                test_data.relation_graph = train_data.relation_graph
+                valid_data.relation_adj = train_data.relation_adj
+                test_data.relation_adj = train_data.relation_adj
 
             train_list.append(train_data)
             valid_list.append(valid_data)

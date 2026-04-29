@@ -1,15 +1,15 @@
 output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
 
-dataset:
-  class: TemporalICEWS14
-  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+# TRIX + T-RoPE-Gq joint pretraining on ICEWS14 + ICEWS0515 with a SHARED
+# day-ordinal time vocabulary (JointTemporalDataset). Same TRIX architecture
+# as the single-graph T-RoPE-Gq runs (run_entity_temporal_icews14_rope2_decay_q
+# / run_entity_temporal_icews0515_rope2_decay.yaml's dim=64 / 6-layer setup),
+# only the dataset wrapper and trainer differ.
 
-# T-RoPE-Gq variant: query-conditioned RoPE-attention gate.
-#     Q = query_head_state + query_relation
-#     K = m_rot
-#     gate = sigmoid((m_rot · Q) / sqrt(d))
-# A/B target: run_entity_temporal_icews14_rope2_decay.yaml (same arch
-# but gate uses relation_j instead of query_head_state + query).
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
 
 model:
   class: TRIX
@@ -39,11 +39,11 @@ model:
     layer_norm: yes
 
 task:
-  name: TransductiveInference
+  name: MultiGraphPretraining
   num_negative: 512
   strict_negative: yes
   adversarial_temperature: 1
-  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
 
 optimizer:
   class: AdamW
@@ -53,5 +53,7 @@ train:
   gpus: {{ gpus }}
   batch_size: 8
   num_epoch: 10
-  log_interval: 100
-  batch_per_epoch: 4000
+  log_interval: 200
+  batch_per_epoch: 8000
+  sampling: equal     # ICEWS14 (90k) vs ICEWS0515 (461k) are 1:5 imbalanced;
+                      # uniform graph sampling matches the FITTER joint recipe.
