@@ -1,0 +1,63 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# 4-GPU A100 variant of pretrain_entity_temporal_decay_q.yaml.
+# bs=2 (matches single-graph ICEWS0515-on-A100 ceiling so RoPE2_decay_q
+# fits when ICEWS0515 is sampled). batch_per_epoch is bumped from
+# 8000 -> 32000 to recover the facts-per-epoch budget of the original
+# bs=8 / 4-rank intent (4 ranks * 2 facts/step * 32000 = 256 K facts
+# per epoch, matching what bs=8 + BPE=8000 would have produced).
+# Random per-step sampling means different facts get drawn each epoch.
+# At ~0.66 sec/batch on A100, one epoch is ~5.9 h, so the 24 h walltime
+# fits ~4 full epochs end-to-end (similar profile to the FITTER joint
+# run 27101 against which we A/B).
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 2
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 32000
+  sampling: equal

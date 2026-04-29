@@ -49,11 +49,34 @@ optimizer:
   class: AdamW
   lr: 5.0e-4
 
+# Warm-start 27109 from 27120's post-epoch-0 weights so the 4-GPU run
+# doesn't repeat epoch 0 from scratch. Saved at "Epoch 0 end" (16:18 on
+# 2026-04-29) before that epoch's eval. State is the unwrapped model
+# (the save uses model.state_dict(), not parallel_model.state_dict()),
+# so it loads cleanly into the 4-GPU fresh model BEFORE DDP wraps it.
+# Optimizer state is intentionally NOT loaded (only model weights), so
+# AdamW restarts with fresh momentum -- a small re-warmup, not a hard
+# resume.
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/JointTemporalDataset/2026-04-29-14-50-35/model_epoch_1.pth
+
 train:
   gpus: {{ gpus }}
-  batch_size: 8
+  batch_size: 2     # bs=8 OOMs on A100 once ICEWS0515 is sampled (single-graph
+                    # ICEWS0515 + RoPE2_decay uses bs=2 on A100 too). At bs=1
+                    # TRIX joint pins ~31 GB of fixed cost on A40; marginal per
+                    # bs ~11-13 GB, so bs=8 projects to ~115 GB peak (>> A100's
+                    # 80 GB). bs=2 is the proven ICEWS0515-on-A100 ceiling.
   num_epoch: 10
   log_interval: 200
-  batch_per_epoch: 8000
+  batch_per_epoch: 32000     # bs went 8 -> 2, so BPE went 8000 -> 32000 to keep
+                             # facts-per-epoch at the original 256 K (4 ranks * 2
+                             # facts/step * 32000). Random per-step sampling
+                             # ensures different facts get drawn each epoch.
+  fast_test: 5000     # Per-epoch eval samples 5 K target edges per graph rather
+                      # than the full ~55 K (ICEWS0515) -- 27120's full eval was
+                      # ~3.5 h / epoch on bs=2, dwarfing the 87 min train. With
+                      # this knob, intermediate eval drops to ~20 min / epoch.
+                      # Final post-training valid + test still run on the full
+                      # set, so end-of-job metrics are unaffected.
   sampling: equal     # ICEWS14 (90k) vs ICEWS0515 (461k) are 1:5 imbalanced;
                       # uniform graph sampling matches the FITTER joint recipe.

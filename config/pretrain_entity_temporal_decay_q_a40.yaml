@@ -1,0 +1,65 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# A40-tuned variant of pretrain_entity_temporal_decay_q.yaml.
+# Identical architecture and dataset; only batch_size is dropped from
+# 8 -> 2 to fit A40's 44 GB. Smoke run on A40 OOMed at bs=4 inside the
+# RoPE2_decay_q forward pass with ICEWS0515 sampled (~370 K target
+# edges + per-edge gate computation), so bs=2 is the safe ceiling.
+# Effective per-step batch on 4 A40s: 4 ranks * 2 = 8 (vs 4 * 8 = 32
+# on the A100 config); throughput is ~1/4. batch_per_epoch is dropped
+# proportionally so 12 h walltime can finish ~3 epochs.
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 1     # bs=2 OOM on A40 (peak 42 GB / 44 GB). bs=1 was the
+                    # smoke-validated ceiling. The 4-subgraph relation_adj
+                    # + RoPE2_decay_q per-edge gate makes TRIX heavier than
+                    # ULTRA on the same hardware (which fits bs=5 on A40).
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 4000
+  sampling: equal
+

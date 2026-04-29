@@ -1,0 +1,61 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# 2-GPU A100 variant of pretrain_entity_temporal_decay_q.yaml.
+# Used to replace cancelled job 27120: same architecture, bs=2, BPE=8000,
+# warm-start from 27120's epoch-0 ckpt, plus fast_test=5000 so per-epoch
+# eval doesn't dominate wall-clock (the ~3.5 h ICEWS0515 full eval was
+# the reason 27120 got cancelled).
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/JointTemporalDataset/2026-04-29-14-50-35/model_epoch_1.pth
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 2
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 8000
+  fast_test: 5000
+  sampling: equal
