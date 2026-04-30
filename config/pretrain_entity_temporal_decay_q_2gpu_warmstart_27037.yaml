@@ -1,0 +1,63 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# 2-GPU A100 joint TRIX + RoPE2_decay_q on ICEWS14+ICEWS0515 with warm-start
+# from 27037's best ckpt (ep8, val MRR 0.620 -- the strongest single-graph
+# T-RoPE-Gq result on ICEWS14). BPE=16000 (vs 8000 in the regular 2-GPU
+# config) so each epoch sees 2 ranks * 2 facts/step * 16000 = 64 K facts,
+# closing the under-coverage gap on ICEWS0515 (current 27142 only sees ~16 K
+# from ICEWS0515 per epoch, which is why ICEWS0515 MRR moves slowly).
+# 24 h walltime -> ~7-8 epochs at 0.65 sec/batch + fast_test eval.
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/TemporalICEWS14/2026-04-28-22-34-18/model_epoch_9.pth
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 2
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 16000
+  fast_test: 5000
+  sampling: equal

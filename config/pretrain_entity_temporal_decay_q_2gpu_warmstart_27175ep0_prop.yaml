@@ -1,0 +1,66 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# A/B partner of 27175 -- same warm-start point (27175's ep0 ckpt =
+# 27037 ep8 + 1 joint epoch on equal sampling), but switching
+# sampling: equal -> proportional from this point on. Question: does
+# proportional sampling close the ICEWS0515 under-coverage gap that
+# equal sampling leaves at bs=2 BPE=8000 (only ~14 K facts/epoch on
+# ICEWS0515 vs ~53 K with proportional) and does that translate to
+# better ICEWS0515 val MRR?
+#
+# Same architecture, bs=2 (A100 80 GB ceiling for TRIX joint),
+# BPE=8000 (matches 27175 to keep wall-clock comparable).
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/JointTemporalDataset/2026-04-30-08-41-39/model_epoch_1.pth
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 2
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 8000
+  fast_test: 5000
+  sampling: proportional
