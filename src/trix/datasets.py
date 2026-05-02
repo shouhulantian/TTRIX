@@ -755,6 +755,124 @@ class TemporalICEWS0515(TemporalICEWS14):
         return os.path.join(self.root, "temporal_icews0515", "processed")
 
 
+class _TemporalForecastDataset(TemporalICEWS14):
+    """Chronological-split temporal KG datasets (YAGO, ICEWS18, WIKI).
+
+    Differs from TemporalICEWS14 (random split) in the test message-
+    passing graph: train + valid is used as context, matching RE-GCN /
+    RE-Net's feedgt=True (single-step) baseline. The standard
+    TemporalICEWS14.process() uses train-only as test message graph,
+    which is the strictest extrapolation protocol but does not match
+    the SOTA TKG forecasting benchmarks.
+
+    Subclasses set name + raw_dir + processed_dir + _parse_date.
+    """
+
+    def process(self):
+        train_results = self.load_file(self.raw_paths[0], inv_entity_vocab={}, inv_rel_vocab={})
+        valid_results = self.load_file(self.raw_paths[1],
+                        train_results["inv_entity_vocab"], train_results["inv_rel_vocab"])
+        test_results = self.load_file(self.raw_paths[2],
+                        train_results["inv_entity_vocab"], train_results["inv_rel_vocab"])
+
+        num_node = test_results["num_node"]
+        num_relations = test_results["num_relation"]
+
+        train_triplets = train_results["triplets"]
+        valid_triplets = valid_results["triplets"]
+        test_triplets = test_results["triplets"]
+
+        all_dates = train_results["timestamps"] + valid_results["timestamps"] + test_results["timestamps"]
+        date_ints = [self._parse_date(d) for d in all_dates]
+        min_date = min(date_ints)
+
+        train_times = torch.tensor([self._parse_date(d) - min_date for d in train_results["timestamps"]])
+        valid_times = torch.tensor([self._parse_date(d) - min_date for d in valid_results["timestamps"]])
+        test_times = torch.tensor([self._parse_date(d) - min_date for d in test_results["timestamps"]])
+
+        train_target_edges = torch.tensor([[t[0], t[1]] for t in train_triplets], dtype=torch.long).t()
+        train_target_etypes = torch.tensor([t[2] for t in train_triplets])
+
+        valid_edges = torch.tensor([[t[0], t[1]] for t in valid_triplets], dtype=torch.long).t()
+        valid_etypes = torch.tensor([t[2] for t in valid_triplets])
+
+        test_edges = torch.tensor([[t[0], t[1]] for t in test_triplets], dtype=torch.long).t()
+        test_etypes = torch.tensor([t[2] for t in test_triplets])
+
+        # Train message graph = train edges only
+        train_edges_bi = torch.cat([train_target_edges, train_target_edges.flip(0)], dim=1)
+        train_etypes_bi = torch.cat([train_target_etypes, train_target_etypes + num_relations])
+        train_times_bi = torch.cat([train_times, train_times])
+
+        # Valid message graph = train (same as standard valid eval)
+        # Test message graph = train + valid (RE-GCN feedgt=True baseline)
+        trainval_edges_fwd = torch.cat([train_target_edges, valid_edges], dim=1)
+        trainval_etypes_fwd = torch.cat([train_target_etypes, valid_etypes])
+        trainval_times_fwd = torch.cat([train_times, valid_times])
+        trainval_edges_bi = torch.cat([trainval_edges_fwd, trainval_edges_fwd.flip(0)], dim=1)
+        trainval_etypes_bi = torch.cat([trainval_etypes_fwd, trainval_etypes_fwd + num_relations])
+        trainval_times_bi = torch.cat([trainval_times_fwd, trainval_times_fwd])
+
+        train_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                          target_edge_index=train_target_edges, target_edge_type=train_target_etypes,
+                          num_relations=num_relations * 2,
+                          edge_time=train_times_bi, target_edge_time=train_times)
+        valid_data = Data(edge_index=train_edges_bi, edge_type=train_etypes_bi, num_nodes=num_node,
+                          target_edge_index=valid_edges, target_edge_type=valid_etypes,
+                          num_relations=num_relations * 2,
+                          edge_time=train_times_bi, target_edge_time=valid_times)
+        test_data = Data(edge_index=trainval_edges_bi, edge_type=trainval_etypes_bi, num_nodes=num_node,
+                         target_edge_index=test_edges, target_edge_type=test_etypes,
+                         num_relations=num_relations * 2,
+                         edge_time=trainval_times_bi, target_edge_time=test_times)
+
+        if self.pre_transform is not None:
+            train_data = self.pre_transform(train_data)
+            valid_data = self.pre_transform(valid_data)
+            test_data = self.pre_transform(test_data)
+
+        torch.save((self.collate([train_data, valid_data, test_data])), self.processed_paths[0])
+
+
+class TemporalYAGO(_TemporalForecastDataset):
+    """YAGO (TeRo split): 10,623 entities, 10 relations, 189 yearly time
+    buckets, 201,089 quadruples. Chronological train/valid/test split
+    (train years 0-177, valid 178-182, test 183-188). Test message graph
+    = train + valid (RE-GCN feedgt=True baseline)."""
+    name = "temporal_yago"
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "yago", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "temporal_yago", "processed")
+
+    def _parse_date(self, date_str):
+        return int(date_str)
+
+
+class TemporalICEWS18(_TemporalForecastDataset):
+    """ICEWS18 (TeRo split): 23,033 entities, 256 relations, 304 distinct
+    timestamps (24-hour stride with gaps), 468,558 quadruples.
+    Chronological train/valid/test split with 5-digit zero-padded hour
+    offsets ('00000'..'05736'). Test message graph = train + valid
+    (RE-GCN feedgt=True baseline)."""
+    name = "temporal_icews18"
+
+    @property
+    def raw_dir(self):
+        return os.path.join(self.root, "icews18", "raw")
+
+    @property
+    def processed_dir(self):
+        return os.path.join(self.root, "temporal_icews18", "processed")
+
+    def _parse_date(self, date_str):
+        return int(date_str)
+
+
 class InductiveDataset(InMemoryDataset):
 
     delimiter = None
@@ -1815,6 +1933,80 @@ class InductiveTemporalDatasetINGRAM(InductiveDataset):
 class GDELTIndT100Temporal(InductiveTemporalDatasetINGRAM):
     """Fully-inductive GDELT split (V/R/T disjoint), temporal version."""
     name = "GDELTIndT_100"
+
+
+class GDELTIndT_25_inter_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_25_inter"
+
+
+class GDELTIndT_50_inter_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_50_inter"
+
+
+class GDELTIndT_75_inter_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_75_inter"
+
+
+class GDELTIndT_100_inter_Temporal(InductiveTemporalDatasetINGRAM):
+    """Alias for GDELTIndT100Temporal -- explicit _inter naming."""
+    name = "GDELTIndT_100"
+
+
+class GDELTIndT_25_extra_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_25_extra"
+
+
+class GDELTIndT_50_extra_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_50_extra"
+
+
+class GDELTIndT_75_extra_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_75_extra"
+
+
+class GDELTIndT_100_extra_Temporal(InductiveTemporalDatasetINGRAM):
+    name = "GDELTIndT_100_extra"
+
+
+class _WIKIIndTBase(InductiveTemporalDatasetINGRAM):
+    """WIKI uses zero-padded year-index strings ('001', '232') as timestamps,
+    not ISO dates. Override the date parser to int() instead of strptime."""
+
+    @staticmethod
+    def _parse_date(date_str):
+        return int(date_str)
+
+
+class WIKIIndT_25_inter_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_25_inter"
+
+
+class WIKIIndT_50_inter_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_50_inter"
+
+
+class WIKIIndT_75_inter_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_75_inter"
+
+
+class WIKIIndT_100_inter_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_100_inter"
+
+
+class WIKIIndT_25_extra_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_25_extra"
+
+
+class WIKIIndT_50_extra_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_50_extra"
+
+
+class WIKIIndT_75_extra_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_75_extra"
+
+
+class WIKIIndT_100_extra_Temporal(_WIKIIndTBase):
+    name = "WIKIIndT_100_extra"
 
 
 class ICEWS14IndT100Temporal(InductiveTemporalDatasetINGRAM):

@@ -254,6 +254,270 @@ def test(cfg, model, test_data, device, logger, filtered_data=None, return_metri
     return mrr if not return_metrics else metrics
 
 @torch.no_grad()
+def test_rolling(cfg, model, test_data, device, logger, filtered_data=None, eval_mode="single_step"):
+    """Per-timestep rolling-history eval matching RE-GCN/TKG-Forecasting-Eval protocol.
+
+    eval_mode:
+        "single_step" -- after scoring queries at time t, append GROUND-TRUTH test
+                         events at t to the history graph for use at time t+1.
+        "multi_step"  -- append MODEL TOP-1 PREDICTIONS at t (errors compound).
+
+    The base message-passing graph is test_data.edge_index (which the dataset
+    constructs as train+valid for chronological-split datasets). Test events
+    accumulate ON TOP of this base.
+
+    Optimization: relation_adj (TRIX's 4-subgraph hh/ht/th/tt) is built ONCE
+    from the base train+valid graph and reused across all timesteps. Adding a
+    few thousand test edges per timestep barely changes the relation co-
+    occurrence pattern, so rebuilding relation_adj per timestep is wasteful
+    and dominates wall-clock for datasets with many test timestamps. Set
+    cfg.task.rebuild_relation_adj_per_step=True to override.
+    """
+
+    world_size = util.get_world_size()
+    rank = util.get_rank()
+
+    has_time = hasattr(test_data, 'target_edge_time') and test_data.target_edge_time is not None
+    if not has_time:
+        raise ValueError("test_rolling requires temporal data with target_edge_time")
+
+    if isinstance(test_data.num_relations, torch.Tensor):
+        num_rels_total = int(test_data.num_relations.item())
+    else:
+        num_rels_total = int(test_data.num_relations)
+    num_rels_orig = num_rels_total // 2  # forward count; inverses use offset +num_rels_orig
+
+    # Per-step relation_adj rebuild is expensive O(|R|^2) and barely changes
+    # with a small number of new test edges; default skip = reuse base.
+    rebuild_per_step = False
+    if hasattr(cfg.task, 'get'):
+        rebuild_per_step = cfg.task.get('rebuild_relation_adj_per_step', False)
+    elif hasattr(cfg.task, 'rebuild_relation_adj_per_step'):
+        rebuild_per_step = cfg.task.rebuild_relation_adj_per_step
+
+    if rebuild_per_step:
+        from trix.tasks import build_relation_graph
+    else:
+        # Pre-extract base relation_adj to clone into each timestep's Data
+        base_relation_adj = test_data.relation_adj if hasattr(test_data, 'relation_adj') else None
+
+    target_times = test_data.target_edge_time
+    unique_times, _ = torch.sort(torch.unique(target_times))
+
+    # Pull base history off-device (we need to rebuild relation_adj per timestep with CPU tensors)
+    hist_edge_index = test_data.edge_index.detach().cpu()
+    hist_edge_type = test_data.edge_type.detach().cpu()
+    hist_edge_time = test_data.edge_time.detach().cpu()
+    base_target_edge_index = test_data.target_edge_index.detach().cpu()
+    base_target_edge_type = test_data.target_edge_type.detach().cpu()
+    base_target_edge_time = test_data.target_edge_time.detach().cpu()
+
+    all_rankings = []
+    all_num_neg = []
+    all_tail_rankings = []
+    all_tail_num_neg = []
+
+    model.eval()
+    for t in unique_times.tolist():
+        ts_mask_cpu = (base_target_edge_time == t)
+        n_queries = int(ts_mask_cpu.sum().item())
+        if n_queries == 0:
+            continue
+        if rank == 0:
+            logger.warning(
+                f"[{eval_mode}] timestep t={t}: {n_queries} queries, history edges={hist_edge_index.shape[1]}"
+            )
+
+        ts_data = Data(
+            edge_index=hist_edge_index,
+            edge_type=hist_edge_type,
+            edge_time=hist_edge_time,
+            target_edge_index=base_target_edge_index[:, ts_mask_cpu],
+            target_edge_type=base_target_edge_type[ts_mask_cpu],
+            target_edge_time=base_target_edge_time[ts_mask_cpu],
+            num_relations=test_data.num_relations.cpu() if isinstance(test_data.num_relations, torch.Tensor) else test_data.num_relations,
+            num_nodes=test_data.num_nodes,
+        )
+        if rebuild_per_step:
+            ts_data = build_relation_graph(ts_data)
+        elif base_relation_adj is not None:
+            # Reuse the base train+valid relation_adj (cheap, defensible approximation)
+            ts_data.relation_adj = base_relation_adj
+        ts_data = ts_data.to(device)
+
+        # Score queries at this timestep (mirrors test() inner loop)
+        ts_triplets = torch.cat([
+            ts_data.target_edge_index,
+            ts_data.target_edge_type.unsqueeze(0),
+            ts_data.target_edge_time.unsqueeze(0)
+        ]).t()
+        sampler = torch_data.DistributedSampler(ts_triplets, world_size, rank)
+        ts_loader = torch_data.DataLoader(ts_triplets, cfg.train.batch_size, sampler=sampler)
+
+        local_pos_h = []
+        local_pos_t = []
+        local_pos_r = []
+        local_pred_t_top = []
+        local_pred_h_top = []
+        for batch in ts_loader:
+            triple_batch = batch[:, :3]
+            batch_time = batch[:, 3]
+            t_batch, h_batch = tasks.all_negative(ts_data, batch)
+            t_pred = model(ts_data, t_batch)
+            h_pred = model(ts_data, h_batch)
+
+            if filtered_data is not None and hasattr(filtered_data, 'edge_time'):
+                t_mask, h_mask = tasks.temporal_strict_negative_mask(filtered_data, triple_batch, batch_time)
+            elif filtered_data is None:
+                t_mask, h_mask = tasks.strict_negative_mask(ts_data, triple_batch)
+            else:
+                t_mask, h_mask = tasks.strict_negative_mask(filtered_data, triple_batch)
+
+            pos_h_index, pos_t_index, pos_r_index = triple_batch.t()
+            t_ranking = tasks.compute_ranking(t_pred, pos_t_index, t_mask)
+            h_ranking = tasks.compute_ranking(h_pred, pos_h_index, h_mask)
+
+            all_rankings += [t_ranking, h_ranking]
+            all_num_neg += [t_mask.sum(dim=-1), h_mask.sum(dim=-1)]
+            all_tail_rankings += [t_ranking]
+            all_tail_num_neg += [t_mask.sum(dim=-1)]
+
+            if eval_mode == "multi_step":
+                local_pos_h.append(pos_h_index)
+                local_pos_t.append(pos_t_index)
+                local_pos_r.append(pos_r_index)
+                local_pred_t_top.append(t_pred.argmax(dim=-1))
+                local_pred_h_top.append(h_pred.argmax(dim=-1))
+
+        # Update history for next timestep
+        if eval_mode == "single_step":
+            new_fwd_edges = base_target_edge_index[:, ts_mask_cpu]
+            new_fwd_etypes = base_target_edge_type[ts_mask_cpu]
+            new_fwd_times = base_target_edge_time[ts_mask_cpu]
+            new_edges_bi = torch.cat([new_fwd_edges, new_fwd_edges.flip(0)], dim=1)
+            new_etypes_bi = torch.cat([new_fwd_etypes, new_fwd_etypes + num_rels_orig])
+            new_times_bi = torch.cat([new_fwd_times, new_fwd_times])
+            hist_edge_index = torch.cat([hist_edge_index, new_edges_bi], dim=1)
+            hist_edge_type = torch.cat([hist_edge_type, new_etypes_bi])
+            hist_edge_time = torch.cat([hist_edge_time, new_times_bi])
+        elif eval_mode == "multi_step":
+            l_h = torch.cat(local_pos_h) if local_pos_h else torch.empty(0, dtype=torch.long, device=device)
+            l_t = torch.cat(local_pos_t) if local_pos_t else torch.empty(0, dtype=torch.long, device=device)
+            l_r = torch.cat(local_pos_r) if local_pos_r else torch.empty(0, dtype=torch.long, device=device)
+            l_pt = torch.cat(local_pred_t_top) if local_pred_t_top else torch.empty(0, dtype=torch.long, device=device)
+            l_ph = torch.cat(local_pred_h_top) if local_pred_h_top else torch.empty(0, dtype=torch.long, device=device)
+
+            if world_size > 1:
+                # All-gather variable-size tensors: pad to per-rank max via tensor list
+                local_n = torch.tensor([len(l_h)], device=device)
+                sizes = [torch.zeros_like(local_n) for _ in range(world_size)]
+                dist.all_gather(sizes, local_n)
+                max_n = int(torch.stack(sizes).max().item())
+                def _pad(x):
+                    if len(x) == max_n:
+                        return x
+                    pad = torch.zeros(max_n - len(x), dtype=x.dtype, device=x.device)
+                    return torch.cat([x, pad])
+                gh_list = [torch.zeros(max_n, dtype=torch.long, device=device) for _ in range(world_size)]
+                gt_list = [torch.zeros(max_n, dtype=torch.long, device=device) for _ in range(world_size)]
+                gr_list = [torch.zeros(max_n, dtype=torch.long, device=device) for _ in range(world_size)]
+                gpt_list = [torch.zeros(max_n, dtype=torch.long, device=device) for _ in range(world_size)]
+                gph_list = [torch.zeros(max_n, dtype=torch.long, device=device) for _ in range(world_size)]
+                dist.all_gather(gh_list, _pad(l_h))
+                dist.all_gather(gt_list, _pad(l_t))
+                dist.all_gather(gr_list, _pad(l_r))
+                dist.all_gather(gpt_list, _pad(l_pt))
+                dist.all_gather(gph_list, _pad(l_ph))
+                # Truncate each to per-rank size
+                gh = torch.cat([gh_list[i][:int(sizes[i].item())] for i in range(world_size)])
+                gt = torch.cat([gt_list[i][:int(sizes[i].item())] for i in range(world_size)])
+                gr = torch.cat([gr_list[i][:int(sizes[i].item())] for i in range(world_size)])
+                gpt = torch.cat([gpt_list[i][:int(sizes[i].item())] for i in range(world_size)])
+                gph = torch.cat([gph_list[i][:int(sizes[i].item())] for i in range(world_size)])
+            else:
+                gh, gt, gr, gpt, gph = l_h, l_t, l_r, l_pt, l_ph
+
+            tail_pred_edges = torch.stack([gh, gpt], dim=0).cpu()
+            head_pred_edges = torch.stack([gph, gt], dim=0).cpu()
+            new_edges_fwd = torch.cat([tail_pred_edges, head_pred_edges], dim=1)
+            new_etypes_fwd = torch.cat([gr, gr]).cpu()
+            new_times_fwd = torch.full((new_edges_fwd.shape[1],), t, dtype=torch.long)
+            new_edges_bi = torch.cat([new_edges_fwd, new_edges_fwd.flip(0)], dim=1)
+            new_etypes_bi = torch.cat([new_etypes_fwd, new_etypes_fwd + num_rels_orig])
+            new_times_bi = torch.cat([new_times_fwd, new_times_fwd])
+            hist_edge_index = torch.cat([hist_edge_index, new_edges_bi], dim=1)
+            hist_edge_type = torch.cat([hist_edge_type, new_etypes_bi])
+            hist_edge_time = torch.cat([hist_edge_time, new_times_bi])
+
+    # Aggregate metrics (mirrors test()'s post-loop aggregation)
+    ranking = torch.cat(all_rankings)
+    num_negative = torch.cat(all_num_neg)
+    tail_ranking = torch.cat(all_tail_rankings)
+    num_tail_neg = torch.cat(all_tail_num_neg)
+
+    all_size = torch.zeros(world_size, dtype=torch.long, device=device)
+    all_size[rank] = len(ranking)
+    all_size_t = torch.zeros(world_size, dtype=torch.long, device=device)
+    all_size_t[rank] = len(tail_ranking)
+    if world_size > 1:
+        dist.all_reduce(all_size, op=dist.ReduceOp.SUM)
+        dist.all_reduce(all_size_t, op=dist.ReduceOp.SUM)
+
+    cum_size = all_size.cumsum(0)
+    all_ranking = torch.zeros(all_size.sum(), dtype=torch.long, device=device)
+    all_ranking[cum_size[rank] - all_size[rank]: cum_size[rank]] = ranking
+    all_num_negative = torch.zeros(all_size.sum(), dtype=torch.long, device=device)
+    all_num_negative[cum_size[rank] - all_size[rank]: cum_size[rank]] = num_negative
+
+    cum_size_t = all_size_t.cumsum(0)
+    all_ranking_t = torch.zeros(all_size_t.sum(), dtype=torch.long, device=device)
+    all_ranking_t[cum_size_t[rank] - all_size_t[rank]: cum_size_t[rank]] = tail_ranking
+    all_num_negative_t = torch.zeros(all_size_t.sum(), dtype=torch.long, device=device)
+    all_num_negative_t[cum_size_t[rank] - all_size_t[rank]: cum_size_t[rank]] = num_tail_neg
+    if world_size > 1:
+        dist.all_reduce(all_ranking, op=dist.ReduceOp.SUM)
+        dist.all_reduce(all_num_negative, op=dist.ReduceOp.SUM)
+        dist.all_reduce(all_ranking_t, op=dist.ReduceOp.SUM)
+        dist.all_reduce(all_num_negative_t, op=dist.ReduceOp.SUM)
+
+    metrics = {}
+    if rank == 0:
+        logger.warning(line)
+        logger.warning(f"[{eval_mode}] aggregated over {len(unique_times)} timesteps, {len(all_ranking)} total queries")
+        for metric in cfg.task.metric:
+            if "-tail" in metric:
+                _metric_name = metric.split("-")[0]
+                _ranking = all_ranking_t
+                _num_neg = all_num_negative_t
+            else:
+                _ranking = all_ranking
+                _num_neg = all_num_negative
+                _metric_name = metric
+
+            if _metric_name == "mr":
+                score = _ranking.float().mean()
+            elif _metric_name == "mrr":
+                score = (1 / _ranking.float()).mean()
+            elif _metric_name.startswith("hits@"):
+                values = _metric_name[5:].split("_")
+                threshold = int(values[0])
+                if len(values) > 1:
+                    num_sample = int(values[1])
+                    fp_rate = (_ranking - 1).float() / _num_neg
+                    score = 0
+                    for i in range(threshold):
+                        num_comb = math.factorial(num_sample - 1) / \
+                                   math.factorial(i) / math.factorial(num_sample - i - 1)
+                        score += num_comb * (fp_rate ** i) * ((1 - fp_rate) ** (num_sample - i - 1))
+                    score = score.mean()
+                else:
+                    score = (_ranking <= threshold).float().mean()
+            logger.warning("[%s] %s: %g" % (eval_mode, metric, score))
+            metrics[metric] = score
+    return metrics
+
+
+@torch.no_grad()
 def cos_similarity(cfg, model, test_data, target_relation, device, logger, filtered_data=None, return_metrics=False):
     world_size = util.get_world_size()
     rank = util.get_rank()
@@ -406,4 +670,26 @@ if __name__ == "__main__":
     if util.get_rank() == 0:
         logger.warning(separator)
         logger.warning("Evaluate on test")
-    test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger)
+
+    # Dispatch on cfg.task.eval_mode (default: "static" = original behavior)
+    eval_mode = cfg.task.get("eval_mode", "static") if hasattr(cfg.task, "get") else cfg.task.__dict__.get("eval_mode", "static")
+    if eval_mode == "static":
+        test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger)
+    elif eval_mode in ("single_step", "multi_step"):
+        test_rolling(cfg, model, test_data, device=device, logger=logger,
+                     filtered_data=test_filtered_data, eval_mode=eval_mode)
+    elif eval_mode == "both":
+        # Run static, single_step, and multi_step in sequence for direct comparison
+        if util.get_rank() == 0:
+            logger.warning("--- eval_mode=static ---")
+        test(cfg, model, test_data, filtered_data=test_filtered_data, device=device, logger=logger)
+        if util.get_rank() == 0:
+            logger.warning("--- eval_mode=single_step ---")
+        test_rolling(cfg, model, test_data, device=device, logger=logger,
+                     filtered_data=test_filtered_data, eval_mode="single_step")
+        if util.get_rank() == 0:
+            logger.warning("--- eval_mode=multi_step ---")
+        test_rolling(cfg, model, test_data, device=device, logger=logger,
+                     filtered_data=test_filtered_data, eval_mode="multi_step")
+    else:
+        raise ValueError(f"Unknown eval_mode: {eval_mode}")

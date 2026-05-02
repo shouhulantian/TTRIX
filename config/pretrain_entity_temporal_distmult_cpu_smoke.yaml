@@ -1,0 +1,59 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# CPU smoke test for vanilla TRIX (distmult only, no temporal module)
+# joint pretrain. Even smaller than the GPU smoke (BPE 5 vs 60,
+# num_negative 32 vs 512, fast_test 20 vs 200) so it completes on CPU
+# in a few minutes. Validates only the code path (data load -> forward
+# -> backward -> save -> sampled eval), not training quality.
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 32
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 1
+  num_epoch: 1
+  log_interval: 1
+  batch_per_epoch: 5
+  fast_test: 20
+  sampling: equal

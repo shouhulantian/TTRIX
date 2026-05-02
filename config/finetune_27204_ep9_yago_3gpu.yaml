@@ -1,0 +1,62 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# Fine-tune TRIX 27204 ep9 ckpt (model_epoch_10.pth, joint-training peak,
+# zero-shot YAGO MRR 0.5788) on YAGO for a few epochs to measure how
+# much the joint-pretrained representation benefits from light
+# adaptation to the YAGO domain.
+#
+# Architecture matches 27204's training: TRIX with both entity_models
+# running RoPE2_decay_q. lr lowered from 5e-4 (pretrain) to 1e-4
+# (fine-tune) to avoid overwriting the joint representation.
+# bs=4 × 3 A100 = 12 facts/step; BPE=4000 caps wall-clock per epoch.
+
+dataset:
+  class: TemporalYAGO
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: RoPE2_decay_q
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: TransductiveInference
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+
+optimizer:
+  class: AdamW
+  lr: 1.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 4
+  num_epoch: 3
+  log_interval: 100
+  batch_per_epoch: 4000
+
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/JointTemporalDataset/2026-04-30-13-30-04/model_epoch_10.pth

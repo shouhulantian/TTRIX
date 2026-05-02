@@ -1,0 +1,63 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# Smoke test for the vanilla TRIX (distmult only, no temporal module)
+# joint pretrain config. Identical architecture to
+# pretrain_entity_temporal_distmult_2gpu.yaml; only num_epoch /
+# batch_per_epoch / fast_test slashed so the run completes in a few
+# minutes and validates the full path:
+#   data load -> DDP forward/backward (distmult only) -> test() ->
+#   per-graph eval (5K -> 200 samples) -> ckpt save+load.
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 1     # A40-44GB safe ceiling for TRIX joint smoke; vanilla
+                    # distmult should use less memory than RoPE2_decay_q
+                    # (no per-edge gate matmul) but staying conservative
+  num_epoch: 1
+  log_interval: 20
+  batch_per_epoch: 60
+  fast_test: 200
+  sampling: equal

@@ -1,0 +1,74 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# Vanilla TRIX (no temporal module) joint pretrain on ICEWS14+ICEWS0515.
+#
+# A/B partner of 27175 / 27204 (TRIX + RoPE2_decay_q) -- isolates the
+# temporal-message contribution by swapping entity_model_{1,2}'s
+# message_func: RoPE2_decay_q -> distmult. Everything else identical:
+#   * same JointTemporalDataset (shared time vocab) -- the data still
+#     carries time_type per edge, but distmult ignores it (just does
+#     input_j * relation_j with no Δt rotation or gate)
+#   * same TRIX architecture: 2 + 4-layer entity NBFNets, dim=64,
+#     6-layer relation NBFNet, distmult relation messages
+#   * same training infra: pretrain_entity_temporal.py with
+#     multigraph_collator_temporal_equal (sampling: equal)
+#   * same bs=2 (A100 80 GB ceiling for TRIX joint), BPE=8000,
+#     fast_test=5000 for per-epoch monitoring
+#   * COLD START (no checkpoint) -- a vanilla baseline starting from
+#     fresh init, parallel to 27120's cold-start (which got mrr 0.489
+#     ICEWS14 / 0.469 ICEWS0515 at ep0). With 10 epochs from cold,
+#     this gives a clean "TRIX only, no temporal module" floor to
+#     compare against the 0.6125-0.6165 joint avg achieved with
+#     RoPE2_decay_q.
+
+dataset:
+  class: JointTemporalDataset
+  graphs: [ICEWS14, ICEWS0515]
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: MultiGraphPretraining
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10]
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 2
+  num_epoch: 10
+  log_interval: 200
+  batch_per_epoch: 8000
+  fast_test: 5000
+  sampling: equal
