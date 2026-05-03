@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --partition=slowlane
+#SBATCH --job-name=trix_distmult_joint
+#SBATCH --output=%u_job_%j.out
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=128G
+#SBATCH --gpus=A100:2
+#SBATCH --time=24:00:00
+
+set -euo pipefail
+echo "[sbatch] node=$(hostname) job=$SLURM_JOB_ID"
+echo "[sbatch] start: $(date -Is)"
+
+module purge
+module load Miniconda3
+source "${EBROOTMINICONDA3}/bin/activate"
+conda activate ultra_env
+
+export OMP_NUM_THREADS=16
+export PYTHONUNBUFFERED=1
+
+REPO=/mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX
+cd "$REPO"
+
+MASTER_PORT=$((29500 + RANDOM % 1000))
+PYTHONPATH=src python -m torch.distributed.launch --nproc_per_node=2 --master_port=$MASTER_PORT src/pretrain_entity_temporal.py \
+    -c config/pretrain_entity_temporal_distmult_2gpu.yaml \
+    --gpus [0,1]
+
+echo "[sbatch] end: $(date -Is)"
