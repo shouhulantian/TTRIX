@@ -1,0 +1,565 @@
+Citizen (Greece)	Demonstrate or rally	Police (Greece)	2014-12-06
+Mexican Army	Use conventional military force	Criminal (Mexico)	2014-10-01
+Emmanuel Eweta Uduaghan	Praise or endorse	Court Judge (Nigeria)	2014-12-01
+House of Representatives (Japan)	Praise or endorse	Party Member (Japan)	2014-12-14
+Bob Hawke	Engage in symbolic act	Gough Whitlam	2014-11-05
+Armed Gang (Peru)	fight with small arms and light weapons	Police (Peru)	2014-09-28
+Martin Lidegaard	Consult	Federica Mogherini	2014-11-29
+Military (Jordan)	Use conventional military force	Armed Band (Jordan)	2014-12-14
+Foreign Affairs (Kuwait)	Praise or endorse	American Near East Refugee Aid	2014-09-18
+New Democracy	Accuse	Coalition of the Radical Left	2014-12-31
+Philip Hammond	Consult	Martin Lidegaard	2014-09-18
+John Baird	Consult	Canadian Armed Forces	2014-10-13
+Jusuf Kalla	Praise or endorse	Cabinet / Council of Ministers / Advisors (Indonesia)	2014-10-27
+Media Personnel (Bulgaria)	Consult	Daniel Mitov	2014-11-17
+Men (Argentina)	fight with small arms and light weapons	City Mayor (Argentina)	2014-09-18
+Representative to the United Nations (China)	Express intent to engage in diplomatic cooperation (such as policy support)	Citizen (Unidentified State Actor)	2014-10-30
+Anandiben Patel	Consult	Bureaucrat (India)	2014-10-27
+Presidential Candidate (Argentina)	Consult	Congress (Argentina)	2014-10-09
+Fernando Henrique Cardoso	Consult	Ministry (Brazil)	2014-10-09
+Military (Jordan)	Praise or endorse	Terrorist Organization (Syria)	2014-12-07
+Danjuma Goje	Make a visit	Sam Nda-Isaiah	2014-11-20
+Drug Gang (Colombia)	Provide economic aid	Senate (Colombia)	2014-10-03
+Chang Wanquan	Consult	Bratislav Gasic	2014-11-17
+Zhang Dejiang	Express intent to meet or negotiate	Head of Government (Colombia)	2014-11-23
+Bratislav Gasic	Consult	Chang Wanquan	2014-11-17
+Canadian Armed Forces	Express intent to meet or negotiate	Sierra Leone	2014-12-20
+Criminal (Mexico)	Engage in mass killings	Student (Mexico)	2014-10-09
+Bhutan	Express intent to meet or negotiate	Maldives	2014-11-25
+Foreign Affairs (Macedonia)	Consult	Gjorge Ivanov	2014-12-26
+Jose Luis de Matos	Express intent to meet or negotiate	Governor (Angola)	2014-10-02
+Kikuyu	Sexually assault	Women (Kenya)	2014-11-15
+Criminal (Belgium)	Yield	Police (Belgium)	2014-12-15
+Other Authorities / Officials (Africa)	Accuse	François Bozizé	2014-12-16
+Lawmaker (Colombia)	Investigate	Ruben Dario Alzate	2014-12-02
+National Anti-Corruption Commission (Thailand)	Host a visit	Prem Tinsulanonda	2014-12-22
+Military Personnel (Kenya)	Consult	The Standard	2014-10-02
+Rafael Ramírez	Make a visit	Ministry (Venezuela)	2014-12-26
+Sultan Ahmed bin Sulayem	Consult	Ministry of Tourism (Maldives)	2014-09-14
+Federica Mogherini	Consult	Martin Lidegaard	2014-11-29
+Vera Jourova	Consult	Milos Zeman	2014-10-02
+Anandiben Patel	Praise or endorse	Manohar Lal Khattar	2014-10-21
+Sierra Leone	Host a visit	Sue-Ellen Kovack	2014-10-15
+Legislature (Libya)	Praise or endorse	Cabinet / Council of Ministers / Advisors (Libya)	2014-09-22
+Bukola Saraki	Praise or endorse	Yemi Osinbajo	2014-12-18
+Coalition of the Radical Left	Accuse	New Democracy	2014-12-17
+Business (Canada)	Engage in judicial cooperation	Regulator (Canada)	2014-12-12
+Guerrilla (Colombia)	Return, release person(s)	Ruben Dario Alzate	2014-12-01
+Lawmaker (United States)	Consult	Ryoo Kihl-jae	2014-12-11
+Court Judge (Nigeria)	Investigate	Murtala Nyako	2014-11-07
+Student (Mexico)	Demonstrate or rally	Drug Gang (Mexico)	2014-10-15
+Party Member (Japan)	Praise or endorse	Okada Katsuya	2014-12-17
+Milos Zeman	Share intelligence or information	Milan Chovanec	2014-10-18
+Staffan de Mistura	Consult	Philip Hammond	2014-12-12
+Legislature (Iraq)	Praise or endorse	Party Member (Iraq)	2014-10-19
+Court Judge (Botswana)	Accuse	Government (Botswana)	2014-11-14
+Maldives	Express intent to meet or negotiate	Bhutan	2014-11-25
+Pavel Belobradek	Express intent to meet or negotiate	Jan Mládek	2014-09-27
+Peter Szijjarto	Express intent to meet or negotiate	Tamar Beruchashvili	2014-11-07
+Afenifere	Praise or endorse	Muhammadu Buhari	2014-12-29
+Abu Sayyaf	Praise or endorse	Combatant (Middle East)	2014-10-17
+Lawmaker (Iraq)	Praise or endorse	Defense / Security Ministry (Iraq)	2014-10-18
+Sierra Leone	Host a visit	Nurse (United States)	2014-10-28
+Lawyer/Attorney (Holy See (Vatican City State))	Consult	Lawyer/Attorney (Dominican Republic)	2014-12-03
+Police (Japan)	Accuse	Men (Japan)	2014-11-10
+Brownie Samukai	Consult	Military Personnel (Liberia)	2014-10-16
+New Democracy	Consult	Alexis Tsipras	2014-09-17
+Citizen (Mauritius)	Express intent to meet or negotiate	Mauritius	2014-11-21
+Philip Hammond	Express intent to meet or negotiate	Sierra Leone	2014-11-12
+Aliyu Mohammed Gusau	Praise or endorse	Nigerian Navy	2014-10-31
+Businessperson (Germany)	Consult	Head of Government (Germany)	2014-09-22
+Ricardo Echegaray	Sign formal agreement	City Mayor (Argentina)	2014-10-02
+Daniel Mitov	Consult	Media Personnel (Bulgaria)	2014-11-18
+Religion (Namibia)	Sexually assault	Children (Namibia)	2014-11-06
+Ministry (Kuwait)	Consult	Sabah Khaled Al-Hamad Al-Sabah	2014-11-09
+Governor (Angola)	Praise or endorse	Population (Angola)	2014-11-12
+Ministry (Kuwait)	Consult	Foreign Affairs (Kuwait)	2014-12-31
+Police (Japan)	Investigate	Men (Japan)	2014-10-07
+Military (Vietnam)	Express intent to meet or negotiate	Kuol Manyang Juuk	2014-10-21
+Labor Union (Uruguay)	Express intent to cooperate	Business (Uruguay)	2014-10-01
+Military (Cambodia)	Consult	Police (Cambodia)	2014-12-26
+Martin Stropnický	Consult	Milos Zeman	2014-11-21
+Horacio Cartes	Consult	Paraguay	2014-11-21
+Daniel Mitov	Consult	Center for Strategic and International Studies	2014-09-29
+Armed Gang (Somalia)	fight with small arms and light weapons	Military Personnel (Somalia)	2014-11-11
+Legislature (Libya)	Consult	Bernardino Leon	2014-09-13
+Abdirahman Ducaale Bayle	Consult	Khaled Bahah	2014-11-27
+Representatives (Lithuania)	Consult	Juozas Bernatonis	2014-12-22
+Alhaji Lai Mohammed	Accuse	Ibrahim Hassan Dankwambo	2014-12-22
+Militant (Ukraine)	fight with small arms and light weapons	Reserve Personnel (Ukraine)	2014-10-04
+Oleh Lyashko	Express intent to meet or negotiate	People Associated with the Opposition (Ukraine)	2014-10-02
+Party Member (Japan)	Engage in symbolic act	Communist Party (Japan)	2014-12-14
+Tomislav Nikolić	Praise or endorse	Military Personnel (Serbia)	2014-09-15
+Government Official (Holy See (Vatican City State))	Consult	Lawyer/Attorney (Holy See (Vatican City State))	2014-12-02
+Media (Argentina)	Consult	City Mayor (Argentina)	2014-09-29
+Foreign Affairs (Italy)	Express intent to meet or negotiate	Paolo Gentiloni	2014-12-19
+Senate (Argentina)	Retreat or surrender militarily	Nestor Kirchner	2014-10-29
+Afghan National Army	Consult	John Campbell	2014-12-24
+Other Authorities / Officials (Greece)	Investigate	Lawmaker (Greece)	2014-12-20
+Assemblies (Serbia)	Threaten	Police (Bosnia and Herzegovina)	2014-11-25
+Foreign Affairs (Argentina)	Accuse	Jeremy Clarkson	2014-10-21
+Governor (Bahrain)	Consult	Military Personnel (Bahrain)	2014-09-21
+Martin Lidegaard	Consult	Philip Hammond	2014-09-18
+Police (Greece)	Use conventional military force	Citizen (Greece)	2014-12-06
+Rights Activist (Simon Wiesenthal Center)	Consult	Sankei	2014-12-06
+News Editor (Nigeria)	Consult	Progressive Party (Nigeria)	2014-11-20
+Kuol Manyang Juuk	Praise or endorse	Riek Machar	2014-12-03
+Toomas Hendrik Ilves	Consult	Representatives (Estonia)	2014-12-04
+Muhammadu Buhari	Consult	Chibuike Rotimi Amaechi	2014-10-20
+Police (Cambodia)	Confiscate property	Men (Cambodia)	2014-11-18
+Lawyer/Attorney (South Korea)	Investigate	Sankei	2014-10-02
+Rafael Ramírez	Consult	Pedro Joaquin Coldwell	2014-11-07
+Indigenous People (Nigeria)	Consult	Mukhtar Ramalan Yero	2014-10-16
+Public Prosecutor (Croatia)	Express intent to meet or negotiate	Police (Croatia)	2014-09-30
+Lawmaker (Greece)	Praise or endorse	Ruling Coalition (Greece)	2014-12-23
+Military Personnel (Bahrain)	Consult	Head of Government (Bahrain)	2014-12-07
+Bhupinder Singh Hooda	Consult	Bureaucrat (India)	2014-10-27
+María Ángela Holguín	Consult	Rafael Ramírez	2014-11-24
+Police (Japan)	Use conventional military force	Kyoto University	2014-11-13
+Employee (Slovenia)	Provide humanitarian aid	Slovenia	2014-09-15
+Head of Government (Cuba)	Express intent to cooperate	Health Ministry (Cuba)	2014-10-22
+Ministry of Health	Express intent to meet or negotiate	Representatives (Bulgaria)	2014-12-08
+Employee (Lebanon)	Occupy territory	Business (Lebanon)	2014-09-16
+Citizen (Greece)	Demonstrate or rally	Police (Greece)	2014-11-17
+Muslim (Syria)	Make a visit	Legislature (Iraq)	2014-10-21
+High Ranking Military Personnel (Kenya)	Consult	The Standard	2014-11-27
+Armed Gang (Libya)	Carry out suicide bombing	Police (Libya)	2014-12-31
+Zhang Dejiang	Consult	Alik L. Alik	2014-10-15
+Daniel Mitov	Consult	Media Personnel (Bulgaria)	2014-11-17
+Armed Gang (United States)	fight with small arms and light weapons	Foreign Affairs (Ethiopia)	2014-10-01
+Ministry (Venezuela)	Host a visit	Rafael Ramírez	2014-12-26
+Communist Party of Bohemia and Moravia	Express intent to engage in diplomatic cooperation (such as policy support)	Civic Democratic Party	2014-11-24
+Zhang Dejiang	Consult	Tsakhiagiyn Elbegdorj	2014-11-09
+Congress (Argentina)	Praise or endorse	Justicialist Party	2014-12-20
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-11-07
+Chang Wanquan	Consult	Defense / Security Ministry (Egypt)	2014-09-23
+Philip Hammond	Consult	Staffan de Mistura	2014-12-12
+Sue-Ellen Kovack	Make a visit	Sierra Leone	2014-10-14
+Coalition of the Radical Left	Express intent to meet or negotiate	Head of Government (Greece)	2014-11-20
+Niko Peleshi	Sign formal agreement	Foreign Affairs (Italy)	2014-12-11
+Head of Government (Bahrain)	Praise or endorse	Governor (Bahrain)	2014-11-25
+Head of Government (Greece)	Express intent to yield	Lawmaker (Greece)	2014-12-22
+Police (Canada)	Accuse	Children (Canada)	2014-09-13
+Olagunsoye Oyinlola	Consult	Daily Trust	2014-12-11
+Malta	Host a visit	Bernardino Leon	2014-10-23
+Police (Japan)	Investigate	Men (Japan)	2014-09-23
+Defense / Security Ministry (Iraq)	Consult	Information Ministry (Iraq)	2014-11-16
+Government Official (Taiwan)	Express intent to meet or negotiate	Military (Taiwan)	2014-10-18
+Business (Canada)	Share intelligence or information	Police (Canada)	2014-10-02
+Ijaw Youth Council	Threaten	Indigenous People (Nigeria)	2014-11-19
+Military (Chad)	Use conventional military force	Militia (Chad)	2014-10-12
+Martin Lidegaard	Express intent to cooperate	Philip Hammond	2014-09-19
+Canadian Armed Forces	Consult	John Baird	2014-10-13
+Employee (Myanmar)	Use conventional military force	Tourist (United Kingdom)	2014-10-03
+Head of Government (South Korea)	Consult	Chongwadai	2014-10-27
+National Security Advisor (Afghanistan)	Sign formal agreement	John Campbell	2014-09-14
+Student (Mexico)	Consult	Tony Blair	2014-10-22
+Industrial / Textiles / Mining Ministry (Papua New Guinea)	Consult	Peter O'Neill	2014-10-23
+Vladimiro Montesinos	Make a visit	Pablo Escobar	2014-11-17
+Kaptan Singh Solanki	Consult	Manohar Lal Khattar	2014-10-21
+Cabinet / Council of Ministers / Advisors (Japan)	Consult	Takeshi Onaga	2014-12-26
+Police (Japan)	Confiscate property	Kyoto University	2014-11-13
+Lawmaker (Iraq)	Praise or endorse	Khaled al-Obeidi	2014-10-18
+Afonso Pedro Canga	Express intent to meet or negotiate	Governor (Angola)	2014-10-18
+Rafael Ramírez	Express intent to meet or negotiate	Foreign Affairs (Venezuela)	2014-11-18
+Chris Alexander	Consult	Ric McIver	2014-11-01
+Defense / Security Ministry (United States)	Meet at a 'third' location	Juan Carlos Pinzon	2014-10-10
+Shaikh Ibrahim  Al Khalifa	Engage in symbolic act	Citizen (United Arab Emirates)	2014-12-02
+Police (Canada)	Accuse	Women (Canada)	2014-10-22
+Senate (Paraguay)	Consult	Police (Paraguay)	2014-11-24
+Francis Korkpor	Consult	Lawyer/Attorney (Liberia)	2014-10-01
+Kashim Shettima	Praise or endorse	Academic Staff Union of Universities	2014-09-25
+Army National Guard (United States)	Host a visit	Afghan National Army	2014-09-23
+Extremist (Canada)	Use conventional military force	Canadian Armed Forces	2014-10-29
+Foreign Affairs (Italy)	Express intent to meet or negotiate	Paolo Gentiloni	2014-12-22
+Citizen (Tonga)	fight with small arms and light weapons	Police (Tonga)	2014-10-08
+Daily Trust	Consult	Olagunsoye Oyinlola	2014-12-11
+Presidential Candidate (Argentina)	Consult	Congress (Argentina)	2014-11-17
+Health Ministry (Jordan)	Consult	Nurse (Jordan)	2014-11-03
+Foreign Affairs (Denmark)	Make a visit	Mswati III	2014-10-29
+Media (China)	Investigate	Industry (China)	2014-10-24
+Legislature (Libya)	Praise or endorse	Cabinet / Council of Ministers / Advisors (Libya)	2014-09-17
+Treasury/Finance Ministry (Czech Republic)	Express intent to meet or negotiate	Milos Zeman	2014-12-16
+Takeshi Onaga	Consult	Cabinet / Council of Ministers / Advisors (Japan)	2014-12-26
+Government (Belarus)	Express intent to meet or negotiate	Arkady Dvorkovich	2014-12-03
+Head of Government (Taiwan)	Praise or endorse	Business (Taiwan)	2014-12-30
+Shining Path	Use conventional military force	Police (Peru)	2014-10-04
+Phung Quang Thanh	Consult	Defense / Security Ministry (Myanmar)	2014-11-19
+People Associated with the Opposition (Ukraine)	Express intent to meet or negotiate	Oleh Lyashko	2014-10-02
+The Standard	Consult	Military Personnel (Kenya)	2014-10-02
+Employee (Myanmar)	Use conventional military force	Tourist (United Kingdom)	2014-10-02
+Military (Kuwait)	Consult	John Baird	2014-10-13
+Activist (Cuba)	Consult	Protester (Cuba)	2014-12-10
+Indigenous People (Brazil)	Praise or endorse	Senate (Brazil)	2014-10-05
+Police (Paraguay)	Investigate	Paraguay	2014-10-21
+Lawmaker (Iraq)	Praise or endorse	Defense / Security Ministry (Iraq)	2014-10-20
+Tsakhiagiyn Elbegdorj	Express intent to meet or negotiate	János Áder	2014-10-14
+Juozas Bernatonis	Consult	Representatives (Lithuania)	2014-12-22
+Husam Mughazi	Consult	Foreign Affairs (Ethiopia)	2014-10-14
+Defense / Security Ministry (Iraq)	Praise or endorse	Legislature (Iraq)	2014-11-26
+Sharad Yadav	Accuse	Environment Department/Ministry (India)	2014-12-07
+City Mayor (Argentina)	Accede to demands for change in leadership	Congress (Argentina)	2014-12-11
+Mikhail Yuryevich Zurabov	Consult	Armed Rebel (Ukraine)	2014-09-18
+Police (Canada)	Engage in judicial cooperation	Regulator (Canada)	2014-12-12
+Defense / Security Ministry (Egypt)	Praise or endorse	Combatant (Egypt)	2014-10-02
+Daily Trust	Consult	Pogu Bitrus	2014-09-30
+Paraguay	Consult	Horacio Cartes	2014-11-20
+Dissident (Azerbaijan)	Consult	Sebastian Kurz	2014-09-16
+House of Councillors (Japan)	Praise or endorse	House of Representatives (Japan)	2014-11-19
+Sierra Leone	Host a visit	Employee (Cuba)	2014-09-26
+Chibuike Rotimi Amaechi	Consult	Muhammadu Buhari	2014-10-15
+Legislature (Libya)	Accuse	Cabinet / Council of Ministers / Advisors (Libya)	2014-09-24
+Indigenous People (United Kingdom)	Consult	Alex Salmond	2014-10-04
+Mauritius	Express intent to meet or negotiate	Businessperson (Africa)	2014-11-21
+Labor Union (Bahrain)	Praise or endorse	Labor and Employment Ministry (Bahrain)	2014-10-29
+Trade Union Congress	Praise or endorse	Insurgency (Boko Haram)	2014-10-17
+Waiter (Spain)	Bring lawsuit against	Juan Carlos I	2014-12-11
+Extremist (Canada)	Use conventional military force	Canadian Armed Forces	2014-10-23
+Presidential Candidate (Mozambique)	Consult	Employee (Mozambique)	2014-09-18
+Cobra Matata	Make a visit	Governor (Democratic Republic of Congo)	2014-11-22
+Canadian Armed Forces	Make a visit	Sierra Leone	2014-12-20
+Ministry of Tourism (Maldives)	Consult	Sultan Ahmed bin Sulayem	2014-09-14
+Julio Cobos	Praise or endorse	Lawmaker (Argentina)	2014-11-28
+Mahendra Pandey	Express intent to meet or negotiate	Bhutan	2014-10-12
+Tolbert Nyenswah	Praise or endorse	Employee (Liberia)	2014-11-05
+Business (Uruguay)	Express intent to cooperate	Labor Union (Uruguay)	2014-10-01
+Zhang Dejiang	Consult	Michael D. Higgins	2014-12-10
+Philip Hammond	Express intent to meet or negotiate	Mark Francois	2014-11-12
+House of Representatives (Tajikistan)	Praise or endorse	Head of Government (Tajikistan)	2014-10-29
+Ministry (Kuwait)	Consult	Sabah Khaled Al-Hamad Al-Sabah	2014-12-04
+Military (South Sudan)	Use conventional military force	Sudan People's Liberation Army	2014-11-14
+Justice Department/Ministery (Argentina)	Sign formal agreement	Luis Beder Herrera	2014-10-17
+Citizen (Greece)	Sign formal agreement	Coalition of the Radical Left	2014-09-24
+Head of Government (Bahrain)	Praise or endorse	Governor (Bahrain)	2014-09-16
+Protester (Democratic Republic of Congo)	Demonstrate or rally	Joseph Kabila	2014-09-27
+Sierra Leone	Host a visit	Sue-Ellen Kovack	2014-10-21
+Afghan National Army	Make a visit	Army National Guard (United States)	2014-09-23
+Milos Zeman	Make a visit	Slovenia	2014-11-06
+Arkady Dvorkovich	Consult	Government (Belarus)	2014-11-27
+Rafael Ramírez	Consult	Foreign Affairs (Venezuela)	2014-11-24
+Head of Government (Tajikistan)	Consult	Milos Zeman	2014-11-27
+Rafael Ramírez	Express intent to meet or negotiate	Pedro Joaquin Coldwell	2014-11-07
+Canadian Broadcasting Corporation	Yield	Police (Canada)	2014-11-26
+Lawyer/Attorney (Dominican Republic)	Consult	Lawyer/Attorney (Holy See (Vatican City State))	2014-12-03
+Police (Greece)	Use conventional military force	Media Personnel (Greece)	2014-09-29
+USAID	Express intent to meet or negotiate	Civic Group (Philippines)	2014-12-15
+Tsakhiagiyn Elbegdorj	Consult	Zhang Dejiang	2014-11-09
+Terrorist Leader (Islamic State of Iraq and the Levant)	Return, release person(s)	Envoy (Qatar)	2014-10-01
+Mukhtar Ramalan Yero	Consult	Indigenous People (Nigeria)	2014-10-16
+Bureaucrat (India)	Consult	Anandiben Patel	2014-10-27
+Government (Belarus)	Consult	Arkady Dvorkovich	2014-11-27
+Police (Croatia)	Use conventional military force	Citizen (Croatia)	2014-11-17
+Alexis Tsipras	Express intent to meet or negotiate	Tomislav Nikolić	2014-12-04
+Joao Lourenco	Engage in symbolic act	Military (Cuba)	2014-12-04
+Ryoo Kihl-jae	Consult	Lawmaker (United States)	2014-12-11
+Defense / Security Ministry (United States)	Consult	Abdelkader Messahel	2014-12-09
+Ric McIver	Consult	Chris Alexander	2014-11-01
+House of Councillors (Japan)	Consult	House of Representatives (Japan)	2014-12-14
+Military (United Kingdom)	Consult	Mark Francois	2014-10-07
+Military (United Kingdom)	Use conventional military force	Armed Rebel (Ireland)	2014-12-16
+Abdelkader Messahel	Consult	Foreign Affairs (Libya)	2014-11-01
+Foreign Affairs (Italy)	Express intent to cooperate	Paolo Gentiloni	2014-12-23
+Police (Canada)	Accuse	Babbar Khalsa	2014-10-25
+Independent Corrupt Practices Commission	Consult	Mustapha Akanbi	2014-10-23
+Husam Mughazi	Consult	Foreign Affairs (Ethiopia)	2014-10-15
+Armed Band (Benin)	Assassinate	Oodua Peoples Congress	2014-12-23
+Governor (Papua New Guinea)	Praise or endorse	Government (Papua New Guinea)	2014-11-30
+Foreign Affairs (Venezuela)	Express intent to meet or negotiate	Rafael Ramírez	2014-11-18
+Head of Government (Bahrain)	Consult	Military Personnel (Bahrain)	2014-12-07
+Milos Zeman	Consult	Head of Government (Tajikistan)	2014-11-27
+Indigenous People (Turkey)	Express intent to meet or negotiate	Representatives (Turkey)	2014-12-06
+Customs Official (India)	Confiscate property	Citizen (United Arab Emirates)	2014-11-24
+Foreign Affairs (Italy)	Consult	Joao Lourenco	2014-12-22
+Pokot	Express intent to engage in diplomatic cooperation (such as policy support)	Men (Kenya)	2014-09-23
+Defense / Security Ministry (Egypt)	Consult	Chang Wanquan	2014-09-23
+Nathan Cirillo	Praise or endorse	Canadian Armed Forces	2014-10-25
+Emmanuel Eweta Uduaghan	Consult	Indigenous People (Nigeria)	2014-10-13
+Chang Wanquan	Consult	Phung Quang Thanh	2014-10-18
+Toomas Hendrik Ilves	Express intent to meet or negotiate	Head of Government (Germany)	2014-11-05
+Federica Mogherini	Express intent to meet or negotiate	Vytenis Povilas Andriukaitis	2014-12-06
+Business (Canada)	Use conventional military force	Canadian Armed Forces	2014-10-22
+Cabinet / Council of Ministers / Advisors (Jordan)	Investigate	Children (Jordan)	2014-12-18
+Police (Canada)	fight with small arms and light weapons	Company - Owner or Operator (Canada)	2014-10-23
+Meglena Kuneva	Express intent to meet or negotiate	Representatives (Bulgaria)	2014-11-17
+Bismillah Khan Mohammadi	Praise or endorse	Military (United Kingdom)	2014-10-27
+Ruben Dario Alzate	Consult	Villager (Bermuda)	2014-11-24
+Police (Austria)	Use conventional military force	Graz	2014-11-28
+Rafael Ramírez	Consult	María Ángela Holguín	2014-11-19
+China National Petroleum Corporation	Consult	Head of Government (Tajikistan)	2014-09-22
+Miguel Ángel Osorio Chong	Express intent to meet or negotiate	Student (Mexico)	2014-09-27
+Coalition of the Radical Left	Sign formal agreement	Citizen (Greece)	2014-09-24
+Police (Japan)	Praise or endorse	Kyoto University	2014-11-13
+Numan Kurtulmus	Consult	Organisation of Islamic Cooperation	2014-11-14
+Healthcare Facility (Tonga)	Provide humanitarian aid	Citizen (Tonga)	2014-12-06
+Naval (United States)	Express intent to meet or negotiate	Maldives	2014-10-07
+Military Personnel (Somalia)	Consult	Scholar (Somalia)	2014-10-05
+Canadian Broadcasting Corporation	Yield	Police (Canada)	2014-11-27
+Citizen (United Arab Emirates)	Express intent to engage in diplomatic cooperation (such as policy support)	Education Ministry (United Arab Emirates)	2014-10-08
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-10-23
+Philip Hammond	Consult	Martin Lidegaard	2014-09-19
+Police (Cambodia)	Consult	Military (Cambodia)	2014-12-26
+Governor General (Antigua and Barbuda)	Consult	Foreign Affairs (Kuwait)	2014-10-21
+Armed Rebel (Ukraine)	Consult	Mikhail Yuryevich Zurabov	2014-09-18
+Court Judge (Nigeria)	Accuse	Umaru Tanko Al-Makura	2014-12-08
+Foreign Affairs (Libya)	Consult	Abdelkader Messahel	2014-11-01
+Sankei	Consult	Rights Activist (Simon Wiesenthal Center)	2014-12-06
+Army National Guard (United States)	Express intent to meet or negotiate	Military Personnel (Latvia)	2014-11-05
+Armed Gang (Libya)	Carry out suicide bombing	Police (Libya)	2014-12-30
+Police (Canada)	Accuse	Children (Canada)	2014-12-04
+City Mayor (Argentina)	Consult	Media (Argentina)	2014-09-29
+Bernadette Meehan	Praise or endorse	Khaled Bahah	2014-11-08
+Sierra Leone	Host a visit	Sue-Ellen Kovack	2014-10-09
+Alex Salmond	Consult	Indigenous People (United Kingdom)	2014-10-04
+City Mayor (Argentina)	Sign formal agreement	Lawmaker (Argentina)	2014-11-19
+Michael D. Higgins	Consult	Zhang Dejiang	2014-12-10
+Citizen (Botswana)	Express intent to meet or negotiate	Botswana	2014-12-08
+Police (Japan)	Investigate	Men (Japan)	2014-10-23
+Djoomart Otorbaev	Consult	High Commission (Kyrgyzstan)	2014-10-07
+Pope Tawadros II	Praise or endorse	Egyptian Army	2014-10-06
+Governor (Democratic Republic of Congo)	Host a visit	Cobra Matata	2014-11-22
+Milos Zeman	Express intent to meet or negotiate	Treasury/Finance Ministry (Czech Republic)	2014-12-16
+Head of Government (Germany)	Consult	Businessperson (Germany)	2014-09-22
+Foreign Affairs (Kuwait)	Consult	Ministry (Kuwait)	2014-12-31
+Treasury/Finance Ministry (Czech Republic)	Consult	Andrej Babis	2014-10-02
+Pol Gen Somyot Poompanmoung	Investigate	Men (Japan)	2014-10-21
+János Áder	Praise or endorse	Peter Szijjarto	2014-09-23
+Alhaji Lai Mohammed	Consult	Daily Trust	2014-12-10
+Legislature (Iraq)	Express intent to engage in diplomatic cooperation (such as policy support)	Khaled al-Obeidi	2014-10-18
+Business (Bahrain)	Sign formal agreement	Labor Union (Bahrain)	2014-10-29
+Bureaucrat (India)	Consult	Bhupinder Singh Hooda	2014-10-27
+Armed Gang (Somalia)	Assassinate	Treasury/Finance Ministry (Somalia)	2014-11-03
+Lloyd Austin	Make a visit	Defense / Security Ministry (Iraq)	2014-11-24
+Ibrahim Hassan Dankwambo	Accuse	Danjuma Goje	2014-12-22
+Monastery (China)	Physically assault	Women (China)	2014-09-16
+Head of Government (Greece)	Accuse	Main Opposition (Greece)	2014-12-13
+Femi Falana	Threaten	Suleiman Abba	2014-11-04
+Cabinet / Council of Ministers / Advisors (Jordan)	Praise or endorse	Health Ministry (Jordan)	2014-09-21
+Pogu Bitrus	Consult	Daily Trust	2014-09-30
+Air Force (Taiwan)	Praise or endorse	Military Personnel (Taiwan)	2014-10-22
+Alex Salmond	Praise or endorse	Nicola Sturgeon	2014-11-15
+Rosa Pacavira	Express intent to meet or negotiate	Governor (Angola)	2014-12-30
+Julia Gillard	Accuse	Kevin Rudd	2014-09-24
+Military (China)	Make a visit	Bratislav Gasic	2014-11-21
+Citizen (Mongolia)	Accuse	Men (Singapore)	2014-10-08
+Foreign Affairs (Kuwait)	Engage in symbolic act	Foreign Affairs (Comoros)	2014-11-24
+Citizen (Greece)	Accuse	Main Opposition (Greece)	2014-12-18
+Mohamed Hassad	Consult	Ministry (Mauritania)	2014-10-12
+Bernardino Leon	Consult	Legislature (Libya)	2014-12-08
+Lawyer/Attorney (South Korea)	Impose restrictions on political freedoms	Sankei	2014-10-02
+Legislature (Iraq)	Host a visit	Muslim (Syria)	2014-10-21
+Media (Nigeria)	Consult	Kayode Aderanti	2014-11-03
+Lawmaker (Ukraine)	Consult	Verkhovna Rada	2014-09-26
+Milos Zeman	Consult	Vera Jourova	2014-10-02
+Lawmaker (Argentina)	Sign formal agreement	City Mayor (Argentina)	2014-11-19
+Nurse (United States)	Make a visit	Sierra Leone	2014-10-28
+Lawyer/Attorney (Holy See (Vatican City State))	Consult	Government Official (Holy See (Vatican City State))	2014-12-02
+Head of Government (Taiwan)	Acknowledge or claim responsibility	Ruling Party (Taiwan)	2014-11-29
+Party Member (Botswana)	Accede to demands for change in leadership	Botswana	2014-11-03
+Alexis Tsipras	Express intent to meet or negotiate	Member of Legislative (Govt) (Serbia)	2014-12-04
+Police (Bosnia and Herzegovina)	Praise or endorse	Socialist Party (Bosnia and Herzegovina)	2014-11-25
+Scholar (Somalia)	Consult	Military Personnel (Somalia)	2014-10-05
+Government Lawyer/Representative (Ukraine)	Demand change in leadership	City Mayor (Ukraine)	2014-12-12
+Slovenia	Host a visit	Milos Zeman	2014-11-06
+Mgwagwa Gamedze	Host a visit	Foreign Affairs (Denmark)	2014-10-29
+Military Personnel (Taiwan)	Express intent to meet or negotiate	Air Force (Taiwan)	2014-10-21
+Police (Greece)	Acknowledge or claim responsibility	Citizen (Greece)	2014-10-25
+Mustapha Akanbi	Consult	Independent Corrupt Practices Commission	2014-10-23
+Other Authorities / Officials (Greece)	Investigate	Lawmaker (Greece)	2014-12-19
+Ali Bongo Ondimba	Engage in symbolic act	Félix Houphouët-Boigny	2014-11-27
+University of Cape Town	Consult	News Editor (Nigeria)	2014-09-22
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-11-20
+El Tiempo	Accuse	City Mayor (Colombia)	2014-09-23
+Mauritius	Express intent to meet or negotiate	Citizen (Mauritius)	2014-11-21
+Joao Lourenco	Consult	Roberta Pinotti	2014-12-03
+Paolo Gentiloni	Express intent to meet or negotiate	Foreign Affairs (Italy)	2014-12-19
+Abdelkader Messahel	Consult	Defense / Security Ministry (United States)	2014-12-09
+High Ranking Military Personnel (United Arab Emirates)	Investigate	Education Ministry (United Arab Emirates)	2014-12-21
+Paraguay	Consult	Horacio Cartes	2014-11-21
+Alexis Tsipras	Accuse	Head of Government (Greece)	2014-11-03
+Men (Argentina)	Sexually assault	Education (Argentina)	2014-10-22
+Nickey Iyambo	Express intent to meet or negotiate	Governor (Angola)	2014-09-24
+Police (Greece)	Use conventional military force	Bank (Greece)	2014-12-10
+Bukola Saraki	Praise or endorse	Yemi Osinbajo	2014-12-19
+Daniel Mitov	Express intent to meet or negotiate	Student (Bulgaria)	2014-09-26
+Andrej Babis	Consult	Treasury/Finance Ministry (Czech Republic)	2014-10-02
+Lawmaker (United States)	Praise or endorse	Head of Government (South Korea)	2014-09-22
+Vytenis Povilas Andriukaitis	Express intent to meet or negotiate	Sierra Leone	2014-11-05
+Cabinet / Council of Ministers / Advisors (Jordan)	Express intent to engage in diplomatic cooperation (such as policy support)	Military Judge (Jordan)	2014-12-17
+Indigenous People (Nigeria)	Consult	Emmanuel Eweta Uduaghan	2014-10-13
+Gjorge Ivanov	Consult	Foreign Affairs (Macedonia)	2014-12-26
+Emrullah Isler	Make a visit	Malta	2014-10-22
+Mustapha Akanbi	Consult	Daily Trust	2014-10-01
+Employee (Cuba)	Make a visit	Sierra Leone	2014-09-26
+Paul Kagame	Make a visit	Amina Mohamed	2014-12-12
+Health Ministry (Cuba)	Express intent to cooperate	Head of Government (Cuba)	2014-10-22
+Military (South Sudan)	Use conventional military force	Children (South Sudan)	2014-12-16
+Ministry (Brazil)	Consult	Aloizio Mercadante	2014-10-30
+Sule Lamido	Accuse	Presidential Candidate (Nigeria)	2014-12-29
+Military (Chad)	Use conventional military force	Abdelhamid Abou Zeid	2014-09-13
+Peacekeeping Troop (Africa)	Use conventional military force	Militant (Somalia)	2014-09-19
+Martin Lidegaard	Express intent to cooperate	Philip Hammond	2014-09-18
+Motol University Hospital	Return, release person(s)	Kaci Hickox	2014-10-28
+Alexis Tsipras	Consult	New Democracy	2014-09-17
+Police (Canada)	Use conventional military force	Nathan Cirillo	2014-10-23
+The Standard	Consult	High Ranking Military Personnel (Kenya)	2014-11-27
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-10-26
+Citizen (Mauritius)	Express intent to meet or negotiate	Businessperson (Africa)	2014-11-21
+Head of Government (Gambia)	Praise or endorse	Sierra Leone	2014-10-03
+Joao Lourenco	Consult	Foreign Affairs (Italy)	2014-12-22
+Alex Salmond	Consult	Businessperson (United Kingdom)	2014-09-15
+Presidential Candidate (Argentina)	Sign formal agreement	Congress (Argentina)	2014-12-09
+Sauli Niinistö	Praise or endorse	Foreign Affairs (Ethiopia)	2014-11-24
+Lawyer/Attorney (Liberia)	Consult	Francis Korkpor	2014-10-01
+Labor Union (Nigeria)	Express intent to engage in diplomatic cooperation (such as policy support)	Emmanuel Eweta Uduaghan	2014-12-09
+Kaci Hickox	Make a visit	Sierra Leone	2014-10-27
+Police (Paraguay)	Use conventional military force	Combatant (Paraguay)	2014-09-19
+Foreign Affairs (Italy)	Sign formal agreement	Niko Peleshi	2014-12-12
+Niko Peleshi	Sign formal agreement	Foreign Affairs (Italy)	2014-12-12
+Businessperson (Africa)	Express intent to meet or negotiate	Citizen (Mauritius)	2014-11-21
+Planning Commission (India)	Praise or endorse	Bureaucrat (India)	2014-12-23
+Verkhovna Rada	Praise or endorse	Lawmaker (Ukraine)	2014-09-16
+Criminal (Argentina)	fight with small arms and light weapons	Men (Argentina)	2014-12-12
+María Ángela Holguín	Consult	Rafael Ramírez	2014-11-19
+Foreign Affairs (Denmark)	Make a visit	Mgwagwa Gamedze	2014-10-29
+Police (Japan)	Investigate	Men (Japan)	2014-09-25
+Media Personnel (France)	Accuse	Ali Bongo Ondimba	2014-11-10
+Henk Mudge	Accuse	Government (Namibia)	2014-11-06
+Sue-Ellen Kovack	Make a visit	Sierra Leone	2014-10-09
+Food and Agriculture Organization	Praise or endorse	Eritrea	2014-11-28
+Prem Tinsulanonda	Make a visit	National Anti-Corruption Commission (Thailand)	2014-12-22
+Luis Beder Herrera	Accuse	People Associated with the Opposition (Argentina)	2014-09-28
+John Campbell	Sign formal agreement	National Security Advisor (Afghanistan)	2014-09-14
+John Campbell	Consult	Afghan National Army	2014-12-24
+Employee (Mozambique)	Consult	Presidential Candidate (Mozambique)	2014-09-18
+Paolo Gentiloni	Praise or endorse	Pier Luigi Bersani	2014-11-05
+Congress (Argentina)	Consult	Presidential Candidate (Argentina)	2014-10-09
+Freedom Party (Ukraine)	Express intent to meet or negotiate	Oleh Lyashko	2014-10-02
+Head of Government (Mozambique)	Express intent to engage in diplomatic cooperation (such as policy support)	Foreign Affairs (Mongolia)	2014-09-23
+Vytenis Povilas Andriukaitis	Express intent to meet or negotiate	Federica Mogherini	2014-12-06
+Kaci Hickox	Make a visit	Sierra Leone	2014-10-29
+Labor Union (Nigeria)	Consult	Labor and Employment Ministry (Nigeria)	2014-12-19
+Peter O'Neill	Consult	Industrial / Textiles / Mining Ministry (Papua New Guinea)	2014-10-23
+Foreign Affairs (Ethiopia)	Consult	Husam Mughazi	2014-10-14
+Foreign Affairs (Venezuela)	Consult	Rafael Ramírez	2014-11-24
+Police (Japan)	Investigate	Men (Japan)	2014-10-06
+Lulzim Basha	Praise or endorse	Head of Government (Germany)	2014-12-11
+Commando (Democratic Republic of Congo)	Use conventional military force	Mamadou Ndala	2014-11-08
+Bernardino Leon	Consult	Legislature (Libya)	2014-09-13
+Abdelkader Messahel	Consult	Defense / Security Ministry (United States)	2014-12-10
+Pham Binh Minh	Engage in symbolic act	Thongsing Thammavong	2014-12-12
+Danjuma Goje	Assassinate	Ibrahim Hassan Dankwambo	2014-12-22
+Ogbeni Rauf Aregbesola	Praise or endorse	Muhammadu Buhari	2014-12-15
+Paolo Gentiloni	Express intent to meet or negotiate	Foreign Affairs (Italy)	2014-12-22
+Police (Libya)	Use conventional military force	Combatant (Toubou people)	2014-09-21
+Vytenis Povilas Andriukaitis	Express intent to meet or negotiate	Sierra Leone	2014-11-06
+Center for Strategic and International Studies	Consult	Daniel Mitov	2014-09-29
+Emmanuel Eweta Uduaghan	Express intent to engage in diplomatic cooperation (such as policy support)	Labor Union (Nigeria)	2014-12-09
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-10-24
+Kevin Rudd	Engage in symbolic act	Gough Whitlam	2014-10-29
+Nurse (Jordan)	Consult	Health Ministry (Jordan)	2014-11-03
+Lawyer/Attorney (Colombia)	Return, release person(s)	Ruben Dario Alzate	2014-11-30
+Mexican Army	fight with small arms and light weapons	Criminal (Mexico)	2014-09-18
+City Mayor (Greece)	Accuse	Citizen (Greece)	2014-10-07
+Businessperson (United Kingdom)	Consult	Alex Salmond	2014-09-15
+Ministry (Mauritania)	Consult	Mohamed Hassad	2014-10-12
+Foreign Affairs (Denmark)	Make a visit	Swaziland	2014-10-29
+Citizen (Croatia)	Praise or endorse	Veterans (Croatia)	2014-11-08
+Kamalesh Sharma	Make a visit	Malta	2014-11-25
+Police (Costa Rica)	Accuse	Women (Costa Rica)	2014-10-16
+Militant (Ukraine)	fight with small arms and light weapons	Reserve Personnel (Ukraine)	2014-10-26
+Labor and Employment Ministry (Bahrain)	Praise or endorse	Supreme Council (Bahrain)	2014-12-02
+Alik L. Alik	Consult	Zhang Dejiang	2014-10-15
+Political Parties (Yemen)	Praise or endorse	Khaled Bahah	2014-11-09
+Nigerian Bar Association	Accuse	Chief Court Judge (Nigeria)	2014-10-20
+Treasury/Finance Ministry (United Arab Emirates)	Sign formal agreement	Government (United Arab Emirates)	2014-11-10
+Police (Peru)	Use conventional military force	Shining Path	2014-10-03
+Chibuike Rotimi Amaechi	Praise or endorse	Muhammadu Buhari	2014-10-15
+Representatives (France)	Consult	Stephane Le Foll	2014-09-25
+Foreign Affairs (Venezuela)	Consult	María Ángela Holguín	2014-11-24
+Protester (Cuba)	Consult	Activist (Cuba)	2014-12-10
+Milos Zeman	Consult	Martin Stropnický	2014-11-21
+María Ángela Holguín	Consult	Foreign Affairs (Venezuela)	2014-11-24
+Governor (Angola)	Consult	Cabinet / Council of Ministers / Advisors (Angola)	2014-12-31
+Military Personnel (Taiwan)	Express intent to meet or negotiate	Air Force (Taiwan)	2014-10-29
+Head of Government (Germany)	Consult	Businessperson (Germany)	2014-09-20
+Foreign Affairs (Italy)	Sign formal agreement	Niko Peleshi	2014-12-11
+Emmanuel Eweta Uduaghan	Praise or endorse	Word of Life Bible Church	2014-11-11
+Congress (Argentina)	Consult	Presidential Candidate (Argentina)	2014-11-17
+Lulzim Basha	Consult	Democratic Party (Albania)	2014-09-30
+Representatives (Estonia)	Consult	Toomas Hendrik Ilves	2014-12-04
+Sierra Leone	Host a visit	Sue-Ellen Kovack	2014-10-14
+Businessperson (United Kingdom)	Consult	Alex Salmond	2014-09-16
+News Editor (Nigeria)	Consult	University of Cape Town	2014-09-22
+Business (Canada)	Use conventional military force	Canadian Armed Forces	2014-10-21
+Defense / Security Ministry (Iraq)	Praise or endorse	Party Member (Iraq)	2014-11-26
+National Anti-Corruption Commission (Thailand)	Praise or endorse	Prem Tinsulanonda	2014-12-22
+Verkhovna Rada	Consult	Lawmaker (Ukraine)	2014-09-26
+Criminal (United Arab Emirates)	Physically assault	Citizen (United Arab Emirates)	2014-12-04
+Defense / Security Ministry (United States)	Consult	Abdelkader Messahel	2014-12-10
+Military Personnel (Bahrain)	Consult	Indigenous People (Bahrain)	2014-09-18
+Daniel Mitov	Consult	John Hamre	2014-09-29
+Government (United Arab Emirates)	Investigate	Citizen (United Arab Emirates)	2014-12-11
+Businessperson (Germany)	Consult	Head of Government (Germany)	2014-09-20
+Defense / Security Ministry (Myanmar)	Consult	Phung Quang Thanh	2014-11-19
+Militant (Ukraine)	Threaten	Women (Ukraine)	2014-10-24
+Labor and Employment Ministry (Nigeria)	Consult	Labor Union (Nigeria)	2014-12-19
+Bernardino Leon	Make a visit	Malta	2014-10-23
+Abdelkader Messahel	Consult	Foreign Affairs (Libya)	2014-12-05
+Court Judge (Nigeria)	Investigate	Murtala Nyako	2014-10-01
+Ministry (Senegal)	Express intent to meet or negotiate	Legislature (Senegal)	2014-12-24
+Civic Democratic Party	Express intent to engage in diplomatic cooperation (such as policy support)	Communist Party of Bohemia and Moravia	2014-11-24
+Sierra Leone	Host a visit	Canadian Armed Forces	2014-12-20
+Men (Kenya)	Accuse	Murderer (Kenya)	2014-11-25
+Philip Hammond	Express intent to cooperate	Martin Lidegaard	2014-09-19
+Veterans (Croatia)	Demand change in leadership	Citizen (Croatia)	2014-11-06
+Sue-Ellen Kovack	Make a visit	Sierra Leone	2014-10-15
+Information Ministry (Iraq)	Consult	Defense / Security Ministry (Iraq)	2014-11-16
+Philip Hammond	Express intent to meet or negotiate	Ministry (Bosnia and Herzegovina)	2014-11-05
+Military Personnel (Somalia)	Use conventional military force	Criminal (Somalia)	2014-12-02
+Citizen (Botswana)	Express intent to cooperate	Government (Botswana)	2014-12-10
+Foreign Affairs (Portugal)	Express intent to meet or negotiate	Indigenous People (Portugal)	2014-10-01
+Malta	Host a visit	Emrullah Isler	2014-10-22
+Fernando Henrique Cardoso	Praise or endorse	Senate (Brazil)	2014-10-24
+Pablo Escobar	Host a visit	Vladimiro Montesinos	2014-11-17
+Lawyer/Attorney (Colombia)	Investigate	Ruben Dario Alzate	2014-12-02
+Chibuike Rotimi Amaechi	Accuse	Sule Lamido	2014-09-26
+Amina Mohamed	Host a visit	Paul Kagame	2014-12-12
+Military Personnel (Liberia)	Consult	Brownie Samukai	2014-10-16
+Dinka	Accuse	Riek Machar	2014-10-22
+Horacio Cartes	Consult	Paraguay	2014-11-20
+Kamalesh Sharma	Engage in symbolic act	Foreign Affairs (Cameroon)	2014-10-08
+Police (Japan)	Investigate	Men (Japan)	2014-12-09
+House of Representatives (Indonesia)	Host a visit	Jusuf Kalla	2014-10-20
+Miroslav Kalousek	Express intent to engage in diplomatic cooperation (such as policy support)	Civic Democratic Party	2014-09-23
+Supreme Council (Bahrain)	Engage in symbolic act	Women (Bahrain)	2014-11-29
+Police (Japan)	Investigate	Women (China)	2014-11-13
+Guerrilla (Revolutionary Armed Forces of Colombia)	Return, release person(s)	Military (Cuba)	2014-11-20
+Sex Trade (China)	Sexually assault	Women (China)	2014-12-11
+Sabah Khaled Al-Hamad Al-Sabah	Consult	Ministry (Kuwait)	2014-12-04
+Ministry (Brazil)	Consult	Fernando Henrique Cardoso	2014-10-09
+Labor and Employment Ministry (Botswana)	Express intent to cooperate	Citizen (Botswana)	2014-12-22
+Miroslav Lajcak	Express accord	Philip Hammond	2014-10-30
+Chibuike Rotimi Amaechi	Consult	Muhammadu Buhari	2014-10-20
+Gambia	Consult	Guinea-Bissau	2014-09-13
+Daily Trust	Consult	Alhaji Lai Mohammed	2014-12-10
+CITIC Group	Sign formal agreement	Qatar Investment Authority	2014-11-05
+Cabinet / Council of Ministers / Advisors (Angola)	Consult	Governor (Angola)	2014-12-31
+Guinea-Bissau	Consult	Gambia	2014-09-13
+Muhammadu Buhari	Engage in symbolic act	Chibuike Rotimi Amaechi	2014-10-20
+Democratic Party (Albania)	Consult	Lulzim Basha	2014-09-30
+Citizen (Benin)	Praise or endorse	People Associated with the Opposition (Benin)	2014-10-29
+Head of Government (Bahrain)	Praise or endorse	Jaber Mubarak Al-Sabah	2014-12-10
+Chongwadai	Consult	Head of Government (South Korea)	2014-10-27
+Chibuike Rotimi Amaechi	Consult	Nigerian Bar Association	2014-11-17
+Alex Salmond	Consult	Businessperson (United Kingdom)	2014-09-16
+Employee (Bahrain)	Praise or endorse	Business (Bahrain)	2014-12-20
+Jusuf Kalla	Make a visit	House of Representatives (Indonesia)	2014-10-20
+Nigerian Bar Association	Consult	Chibuike Rotimi Amaechi	2014-11-17
+Member of the Judiciary (United Kingdom)	Appeal for political reform	Lawmaker (United Kingdom)	2014-11-24
+Other Authorities / Officials (Greece)	Provide humanitarian aid	Citizen (Greece)	2014-12-28
+New Democracy	Accuse	Coalition of the Radical Left	2014-12-17
+Qatar Investment Authority	Sign formal agreement	CITIC Group	2014-11-05
+University of Liberia	Praise or endorse	Student (Liberia)	2014-09-15
+Police (Japan)	Investigate	Men (Japan)	2014-09-24
+Head of Government (Tajikistan)	Consult	China National Petroleum Corporation	2014-09-22
+Charge D'affaires (United States)	Consult	Police (Gambia)	2014-09-15
