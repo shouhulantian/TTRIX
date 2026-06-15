@@ -1,0 +1,56 @@
+output_dir: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output
+
+# Same as eval_27364_ep4_distmult_icews14.yaml but feeds eval_dump_ranks.py
+# and writes per-query rank CSV for the rebuttal error analysis.
+
+dataset:
+  class: TemporalICEWS14
+  root: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/datasets
+
+model:
+  class: TRIX
+  relation_model:
+    class: NBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_1:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+  entity_model_2:
+    class: IndNBFNet
+    input_dim: 64
+    hidden_dims: [64, 64, 64, 64]
+    message_func: distmult
+    aggregate_func: sum
+    short_cut: yes
+    layer_norm: yes
+
+task:
+  name: TransductiveInference
+  num_negative: 512
+  strict_negative: yes
+  adversarial_temperature: 1
+  metric: [mr, mrr, hits@1, hits@3, hits@10, hits@10_50]
+  dump_ranks_path: /mnt/nfs/home/ac139229/jiaxin/git/git/alan_fitter/rebuttal_data/icews14_distmult_27364_ep4_ranks.csv
+
+optimizer:
+  class: AdamW
+  lr: 5.0e-4
+
+train:
+  gpus: {{ gpus }}
+  batch_size: 8
+  num_epoch: 0
+  log_interval: 100
+  batch_per_epoch: null
+
+checkpoint: /mnt/nfs/home/ac139229/jiaxin/git/git/TTRIX/output/TRIX/JointTemporalDataset/2026-05-01-08-42-09/model_epoch_5.pth
