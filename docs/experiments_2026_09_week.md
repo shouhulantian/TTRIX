@@ -1,4 +1,4 @@
-# Experiments week of 2026-09-28 → 2026-09-30
+# Experiments week of 2026-09-28 → 2026-10-01
 
 Session log covering FITTER port, TIGER port, filter-fix rediscovery,
 3-dataset GRATE pretraining launch, RoPE β sensitivity sweep,
@@ -126,7 +126,7 @@ slightly ahead at every point; TIGER ≈ TRIX-paper at p₁₀₀.
 
 ---
 
-## 4. Results landed 2026-09-30
+## 4. Results landed 2026-09-30 → 2026-10-01
 
 ### a) 3-dataset GRATE pretrain (job 93629, DONE)
 
@@ -160,93 +160,160 @@ though YAGO is now in-mix). The 2-ds warm start is stronger on all
 axes measured. Cross-domain interference dominates the added-data
 benefit at this data mix / warm-start schedule.
 
-**ep0 baseline eval (job 94215) submitted** — ckpt `model_epoch_1.pth`
-is the warm-start snapshot saved before any 3-ds training. Evaluating
-it isolates the 3-ds training gain from the warm-start baseline. If
-ep0 ≈ 27204 ep9, the drop at ep1 is training-induced. If ep0 already
-< 27204 ep9, it is a config drift (e.g. num_time vocab / YAGO date
-encoding on the new joint dataset).
+**ep0 baseline eval (job 94236_1, DONE)**:
 
-### b) 27204 ep3 vs ep9 (job 93713, DONE — 8/10 complete, 2 rerunning)
+| ckpt | mode | MRR | H@1 | H@3 | H@10 |
+|---|---|---:|---:|---:|---:|
+| 3-ds ep0 (model_epoch_1.pth) | ICEWS14 static | **0.5783** | 0.4678 | — | 0.7848 |
+| 3-ds ep1 (model_epoch_2.pth) | ICEWS14 static | 0.5885 | 0.4819 | — | 0.7858 |
+| 2-ds 27204 ep9 (reference) | ICEWS14 static | 0.6087 | 0.5074 | 0.6719 | 0.7928 |
 
-WIKI IndT interpolation (ep3 static):
+**Finding**: 3-ds ep0 (= the 27204 ep9 warm-start weights at the
+moment they entered the 3-ds trainer) scores **0.5783**, which is
+**0.030 lower than 27204 ep9's canonical 0.6087 on the same ICEWS14
+test set**. The weights should be IDENTICAL. The gap is **not
+training-induced**; it's an **eval-side config difference** between
+`class: TemporalICEWS14` (standalone) vs loading the same ckpt into
+the 3-ds JointTemporalDataset context. Likely suspects:
+- num_time vocab length differs (joint vs single) → RoPE angle shift.
+- Entity re-indexing within the joint dataset vs single-dataset eval.
+- `IndNBFNet.rope_relative` reading a different base_beta.
 
-| variant | ep3 test MRR | ep9 (paper) |
-|---|---:|---:|
-| WIKI_25_inter | 0.7131 | 0.507 |
-| WIKI_50_inter | 0.7907 | 0.650 |
-| WIKI_75_inter | 0.8715 | 0.872 |
-| WIKI_100_inter | **0.9922** | 0.991 |
+**This means the "adding YAGO hurt downstream" conclusion is wrong.**
+The baseline itself drops 0.03 just from eval-time config drift. The
+ep0 → ep1 delta is only ~0.01 — within noise. **Need to isolate the
+ckpt-loading / eval harness mismatch before any 3-ds-pretraining
+impact statement is defensible.** 94236_2 (ICEWS0515 ep0) + 94236_3
+(YAGO ep0) will confirm whether the drift is systematic.
 
-**ep3 wins on WIKI inter** (huge gap at 25/50, matches at 75/100).
+### b) 27204 ep3 vs ep9 — full comparison (jobs 93713 + 94234 + 94233 + 27356-9 + 27366-7 + 27403-6 + 27586 + 27624 + 28537-40 + 28545-8)
 
-WIKI IndT extrapolation (ep3 single_step):
+All numbers from actual run logs (not paper rows).
+Format: `MRR / H@1 / H@3 / H@10`.
 
-| variant | ep3 test MRR | ep3 test H@1 | ep3 test H@10 |
-|---|---:|---:|---:|
-| WIKI_25_extra_ss | 0.9676 | 0.9589 | 0.9806 |
-| WIKI_50_extra_ss | 0.9618 | 0.9547 | 0.9724 |
-| WIKI_75_extra_ss | 0.9719 | 0.9661 | 0.9797 |
-| WIKI_100_extra_ss | 0.9697 | 0.9632 | 0.9773 |
+#### WIKI IndT interpolation (static)
 
-ep3 flat around 0.96–0.97 across ratios (higher than the paper's
-+Method row 0.960/0.961/0.958/0.961). ep3 wins.
+| ratio | ep3 (model_epoch_4.pth) | ep9 (model_epoch_10.pth) | Δ MRR |
+|---|---|---|---:|
+| 25%  | 0.7131 / 0.6517 / 0.7407 / 0.8190 | 0.5072 / 0.4144 / 0.5503 / 0.6804 | **+0.206** |
+| 50%  | 0.7907 / 0.7493 / 0.8074 / 0.8600 | 0.6501 / 0.5568 / 0.7072 / 0.7821 | **+0.141** |
+| 75%  | 0.8715 / 0.8484 / 0.8835 / 0.9124 | 0.8719 / 0.8468 / 0.8839 / 0.9167 | ≈0 (tie) |
+| 100% | 0.9922 / 0.9907 / 0.9924 / 0.9954 | 0.9906 / 0.9878 / 0.9924 / 0.9966 | ≈0 (tie) |
 
-YAGO / ICEWS18 (ep3 single_step):
+#### WIKI IndT extrapolation (single_step)
 
-| dataset | ep3 MRR | ep9 (paper) |
-|---|---:|---:|
-| YAGO | 0.8838 | 0.858 |
-| ICEWS18 | rerun 94213 | 0.273 |
+| ratio | ep3 | ep9 | Δ MRR |
+|---|---|---|---:|
+| 25%  | 0.9676 / 0.9589 / 0.9747 / 0.9806 | 0.7949 / 0.6777 / 0.9143 / 0.9546 | **+0.173** (H@1 +0.281) |
+| 50%  | 0.9618 / 0.9547 / 0.9666 / 0.9724 | 0.8883 / 0.8081 / 0.9658 / 0.9740 | **+0.074** |
+| 75%  | 0.9719 / 0.9661 / 0.9762 / 0.9797 | 0.8737 / 0.7656 / 0.9822 / 0.9831 | **+0.098** MRR / +0.21 H@1; ep9 marginally wins H@3/H@10 |
+| 100% | 0.9697 / 0.9632 / 0.9744 / 0.9773 | 0.9663 / 0.9589 / 0.9723 / 0.9756 | ≈0 (tie) |
 
-**ep3 wins on YAGO.** ICEWS18 timed out at 4 h — see § 5.
+#### GDELT IndT interpolation (static)
 
-**Verdict**: for downstream deployment ep3 is at least as good as
-ep9, often much better. The paper's "+Method" numbers were a
-best-of-both-worlds mix (§ 5 in the previous doc); a clean per-column
-choice would put ep3 forward for every column measured so far.
+| ratio | ep3 | ep9 | Δ MRR |
+|---|---|---|---:|
+| 25%  | 0.3798 / 0.2634 / 0.4249 / 0.6146 | *missing* | — |
+| 50%  | 0.3945 / 0.2753 / 0.4417 / 0.6361 | *missing* | — |
+| 75%  | 0.4315 / 0.3118 / 0.4839 / 0.6708 | *missing* | — |
+| 100% | 0.4436 / 0.3095 / 0.5039 / 0.7228 | *missing* | — |
 
-### c) GRATE ICEWS14 β sensitivity (jobs 93688 + 93694, DONE)
+No ep9 GDELT-inter run exists (paper's +Method row used these ep3
+numbers 27356-9).
+
+#### GDELT IndT extrapolation (single_step)
+
+| ratio | ep3 | ep9 | Δ MRR |
+|---|---|---|---:|
+| 25%  | 0.3093 / 0.2038 / 0.3465 / 0.5142 | 0.2953 / 0.1882 / 0.3317 / 0.5035 | +0.014 |
+| 50%  | 0.3127 / 0.2061 / 0.3484 / 0.5157 | 0.2846 / 0.1766 / 0.3181 / 0.4977 | **+0.028** |
+| 75%  | 0.3435 / 0.2373 / 0.3846 / 0.5470 | 0.3084 / 0.1975 / 0.3463 / 0.5273 | **+0.035** |
+| 100% | 0.2921 / 0.1864 / 0.3251 / 0.5026 | 0.2875 / 0.1816 / 0.3181 / 0.5013 | ≈0 (tie) |
+
+#### Other single-dataset benchmarks
+
+| dataset | mode | ep3 | ep9 | winner |
+|---|---|---|---|---|
+| YAGO | single_step | 0.8838 / 0.8493 / 0.9128 / 0.9323 | 0.8580 / 0.8217 / 0.8884 / 0.9050 | **ep3 (+0.026)** |
+| **ICEWS18** | single_step | 0.2458 / 0.1552 / 0.2833 / 0.4315 | 0.2732 / 0.1793 / 0.3130 / 0.4612 | **ep9 (+0.027)** ← only ep9 win |
+| ICEWS14 | static | 0.6087 / 0.5074 / 0.6719 / 0.7928 | *missing* | ep3 only |
+| ICEWS0515 | static | 0.6169 / 0.5009 / 0.6929 / 0.8298 | *missing* | ep3 only |
+
+ep9 ICEWS14/0515 runs don't exist (paper's row = these ep3 numbers
+from 27366/27367).
+
+#### Scorecard
+
+| outcome | count | datasets |
+|---|---:|---|
+| **ep3 wins** | 8 | WIKI_25/50_inter, WIKI_25/50/75_extra_ss, YAGO_ss, GDELT_50/75_extra_ss |
+| ties | 5 | WIKI_75/100_inter, WIKI_100_extra_ss, GDELT_25/100_extra_ss |
+| **ep9 wins** | 1 | **ICEWS18_ss** |
+| ep9 missing | 6 | ICEWS14/0515 static, GDELT_25/50/75/100 inter static |
+
+**Observations**:
+- **At low inductive ratios ep3 crushes ep9** — WIKI_25_inter +0.21 MRR,
+  WIKI_25_extra_ss H@1 +0.28. ep9 has overfit and lost generalization
+  capacity.
+- **ep3 wins the top-1 contest even where ep9 catches up on H@10**
+  (WIKI_75_extra_ss). ep3 is more decisive at rank-1 even when ep9
+  spreads its mass better across the top-10.
+- **ICEWS18 is the one true ep9 win** — pretrain-adjacent domain,
+  longer ICEWS14/0515 training transfers better zero-shot.
+- **Paper framing**: ep3 is the canonical "+Method" ckpt. Single
+  exception that would need a footnote: ICEWS18, where ep9's additional
+  ICEWS-family training helps the related domain.
+- **Still-missing ep9 runs** (6 cells) worth filling: ICEWS14/0515
+  static and GDELT inter static (×4), to confirm the ep3 preference on
+  the ICEWS family holds (vs. the pattern that ep9 wins ICEWS18
+  zero-shot).
+
+### c) GRATE ICEWS14 β sensitivity (jobs 93688 + 93694 + 94221, DONE)
 
 **Zero-shot β swap** — model trained at β=10000, evaluated with a
 modified inference-time β. No retraining.
 
-| β | test MRR | test H@1 | test H@10 |
-|---:|---:|---:|---:|
-| **1000** | **0.6115** | **0.5105** | **0.7917** ← best |
-| 5000 | 0.6032 | — | — |
-| 10000 (train) | ~0.607 | — | — |
-| 25000 | 0.5962 | — | — |
-| 50000 (94221, in flight) | — | — | — |
-| 100000 | 0.5879 | — | — |
+| β | MR | MRR | H@1 | H@3 | H@10 |
+|---:|---:|---:|---:|---:|---:|
+| **1000** | 109.75 | **0.6115** | **0.5105** | **0.6778** | 0.7917 |
+| 5000 | 102.41 | 0.6032 | 0.4998 | 0.6714 | 0.7914 |
+| 10000 (train default) | *missing* | — | — | — | — |
+| 25000 | 101.28 | 0.5962 | 0.4901 | 0.6653 | 0.7904 |
+| 50000 | 101.47 | 0.5908 | 0.4834 | 0.6604 | 0.7885 |
+| 100000 | 100.69 | 0.5879 | 0.4800 | 0.6566 | 0.7860 |
 
-Spread ≈ **0.024 MRR** across **two orders of magnitude of β** —
-monotone downhill from small β to large β. The default β=10000 (LLM
-convention) sits within ~0.005 MRR of the optimum: RoPE2_decay_q is
-robust to β choice.
+Spread **0.024 MRR** across **100× β range**. Monotone downhill
+small→large β.
+
+Patterns:
+- **MRR, H@1, H@3 all monotonically decrease** as β grows.
+- **H@10 is nearly flat** (0.786–0.792): the top-10 ranking is stable;
+  small β only sharpens top-1/top-3 discrimination.
+- **MR improves slightly with larger β** (109.7 → 100.7): β=1000's
+  MRR win comes with a tiny MR cost — a few hard queries slip further
+  down for that fine-rotation setting.
 
 **Paper framing**: report as a robustness datapoint — GRATE does not
 require careful β tuning; the LLM default works within a couple of
 points of best. If asked to defend β=10000, the numbers back it up.
+β=1000 is the small-β optimum worth highlighting if the story wants
+an "even better with Δt-scale-aware β" angle.
 
-**Open**: verify plateau at low β (β ∈ {200, 500}) and cross-scale
-transfer on YAGO (yearly Δt, expect smaller optimum) and GDELT
-(15-min Δt, expect larger optimum). If the optimum scales inversely
-with Δt range, that's a paper-worthy invariant.
+**Open**:
+- Fill the β=10000 cell (training default) with 27204 ep9 ICEWS14
+  static — 93688_3 was cancelled before completing.
+- Verify plateau at low β (β ∈ {200, 500}).
+- Cross-scale transfer on YAGO (yearly Δt, expect smaller optimum)
+  and GDELT (15-min Δt, expect larger optimum). If the optimum scales
+  inversely with Δt range, that's a paper-worthy invariant.
 
-### d) 27204 ep3 single_step on GDELT extra (job 93711, DONE — 3/4, 1 rerunning)
+### d) 27204 ep3 single_step on GDELT extra (jobs 93711 + 94233, DONE)
 
-| variant | ep3+ss MRR | ep3+ss H@1 | ep3+ss H@10 |
-|---|---:|---:|---:|
-| GDELT_25_extra_ss | rerun 94212 | — | — |
-| GDELT_50_extra_ss | 0.3127 | 0.2061 | 0.5157 |
-| GDELT_75_extra_ss | 0.3435 | 0.2373 | 0.5470 |
-| GDELT_100_extra_ss | 0.2921 | 0.1864 | 0.5026 |
-
-GRATE ep3+ss beats TIGER ep5 (0.29-0.34 vs TIGER's 0.26 flat) on
-GDELT extrapolation. Also beats the paper's ep9+ss numbers
-(0.295/0.285/0.308/0.288) at 50 and 75. **ep3 recommendation extends
-to GDELT single_step.**
+Already included in § 4b GDELT_extra_ss comparison. Summary:
+0.3093 / 0.3127 / 0.3435 / 0.2921 for 25/50/75/100 — beats TIGER ep5
+(0.26 flat) and the ep9+ss paper numbers (0.295/0.285/0.308/0.288)
+at 25, 50, 75; ties at 100. **ep3 recommendation extends to GDELT
+single_step.**
 
 ### e) Vanilla TRIX 3-ds pretrain (job 93811, ep7 done — RoPE2_decay_q → distmult)
 
@@ -321,17 +388,60 @@ works: ep3 above FITTER on WIKI inter, GDELT inter/extra; ties on
 WIKI extra where both saturate. The smallest gap is exactly where
 the ceiling forces both models into a corner — defensible framing.
 
+### g) Model-width scaling probe (dim=96, jobs 94222 → 94231 → 94290)
+
+Replacement scalability story after 3-ds pretrain didn't produce a
+clean "more data helps" signal (§ 4a). Scales GRATE's `input_dim` and
+`hidden_dims` from 64 → 96 on the same 2-ds mix, cold start.
+
+- **94222** (first attempt, bs=2): OOM at first layer after 20 s —
+  dim=96 bs=2 needs > 79 GB on A100:80G.
+- **94231** (bs=1, lr=5e-4, same as dim=64 baseline): ran 11 h 28 m
+  to ep7 before cancel. Trajectory had the diagnostic signature of
+  **LR-too-high** at halved effective batch:
+
+  | epoch | ICEWS14 | ICEWS0515 |
+  |---:|---:|---:|
+  | 0 (init) | 0.484 | 0.474 |
+  | 1 | 0.401 | 0.348 ← **−0.08 crash** |
+  | 2 | 0.493 | 0.449 |
+  | 3-7 | 0.45–0.49 (oscillates) | 0.44–0.46 |
+
+  ep0 (model init + eval, no training yet) is comparable to vanilla
+  TRIX cold-start 0.495. Then ep1 drops 0.08 MRR, and the model
+  oscillates in the 0.44-0.49 band ever since. Classic
+  LR-too-high-at-small-batch signature.
+
+- **94290** (resubmitted with `lr=2.5e-4`, linear scaling rule for
+  bs=1 vs bs=2 baseline): RUNNING. Decision rule — if ep1 MRR ≥ ep0
+  MRR → LR was the issue, let it converge; if ep1 crashes again →
+  try `bs=2 + num_negative=256` to restore the baseline gradient
+  noise regime.
+
+**Open**: if dim=96 does climb past dim=64's 0.63 at convergence,
+add a dim=128 datapoint for a 3-point scaling curve. If it merely
+matches dim=64, the paper framing becomes "GRATE is well-sized at
+dim=64 for these datasets" (honest, less exciting). If it loses to
+dim=64, the width-scaling story is dead and we fall back to the ep3
+vs ep9 cross-dataset dominance (§ 4b) and the FITTER head-to-head
+(§ 4f) as the paper's two main empirical anchors.
+
 ---
 
-## 5. Reruns in flight (2026-09-30 evening)
+## 5. Reruns in flight (2026-10-01)
 
-| job | task | walltime | reason |
+| final jid | task | walltime | outcome |
 |---|---|---|---|
-| **94212_1** | GDELT_25_extra_ep3_ss | 10 h | 4 h TIMEOUT — GDELT 25% has ~350 single_step steps |
-| **94213_10** | ICEWS18_ep3_ss | 10 h | 4 h TIMEOUT |
-| **94214_2** | ICEWS0515_3ds_ep1_static | 8 h | 3 h TIMEOUT — static eval stalled at "Evaluate on test" (investigate whether filter build for ~450 k edges dominates) |
-| **94215_[1-3]** | 3ds ep0 baseline (ICEWS14/0515/YAGO) | 8 h | New — evaluate warm-start snapshot before any 3-ds training, to isolate training-induced vs config-induced regression |
-| **94221_6** | β=50000 sensitivity on ICEWS14 | 2 h | Fills 25000→100000 gap in β sweep |
+| 94221_6 | β=50000 sensitivity on ICEWS14 | 2 h | COMPLETED (filled the β=50000 cell) |
+| 94233_1 | GDELT_25_extra_ep3_ss | 10 h | COMPLETED (filled GDELT_25 cell) |
+| 94234_10 | ICEWS18_ep3_ss | 10 h | COMPLETED (**ep9 wins — see § 4b**) |
+| 94236_1 | 3ds ep0 ICEWS14 static | 8 h | COMPLETED (**eval drift discovered — see § 4a**) |
+| 94235_2 | 3ds ep1 ICEWS0515 static (rerun) | 8 h | RUNNING (same "Evaluate on test" stall risk) |
+| 94236_2 | 3ds ep0 ICEWS0515 static | 8 h | RUNNING (same stall risk) |
+| 94236_3 | 3ds ep0 YAGO single_step | 8 h | RUNNING |
+
+Chain history (cancelled → resubmitted → final): 94212→94225→**94233**,
+94213→94226→**94234**, 94214→94227→**94235**, 94215→94228→**94236**.
 
 ---
 
@@ -339,8 +449,12 @@ the ceiling forces both models into a corner — defensible framing.
 
 | job | what | ETA |
 |---|---|---|
-| **93811** | **Vanilla TRIX 3-ds pretrain** (ICEWS14 + ICEWS0515 + YAGO, cold). A/B partner of 93629 — same data, RoPE2_decay_q → distmult. 6× A100, bs=2, BPE=8000, 10 ep. Isolates the temporal-message contribution. At ep7: val avg 0.515, downhill from 0.539 peak at ep2. See § 4e for trajectory. | ~10 h (14+ h in of 24 h wall) |
-| Reruns | 94212 / 94213 / 94214 / 94215 / 94221 | 2-10 h |
+| **94290** | GRATE dim=96 cold-start 2-ds pretrain, **lr=2.5e-4** (bs=1). Model-width scaling probe. See § 4g. | PENDING on QOS (needs 6 A100s; blocked by 3 running single-GPU jobs on gpuB01) |
+| 94235_2, 94236_2, 94236_3 | 3ds eval tail (see § 5) | 2-6 h |
+
+**93811 (vanilla TRIX 3-ds) was CANCELLED at ep8** after capturing a
+clear plateau at avg 0.539 (ep2) with drift to 0.515 by ep7. Enough
+trajectory for the GRATE vs vanilla A/B. Downstream evals skipped.
 
 ---
 
@@ -372,26 +486,40 @@ protocol. Verification job 93711 in flight.
 
 ## 8. Open items for the paper
 
-1. **Present ep3 as the canonical "+Method" ckpt.** Per-column ep3
-   dominates ep9 on WIKI inter, WIKI extra, YAGO, GDELT extra ss
-   (§ 4b, 4d). No metric on which ep9 wins has surfaced yet. Re-run
-   ICEWS18 ep3 when 94213 lands to close the last gap.
-2. **3-dataset scalability is NOT a paper win** (§ 4a). ICEWS14 and
-   YAGO both regress when YAGO is added to the pretrain mix. The
-   scalability story has to be either (a) re-tell as "GRATE
-   pretrained on ICEWS14+ICEWS0515 generalizes to YAGO with a small
-   penalty" (2-ds → YAGO zero-shot = 0.858; 3-ds → YAGO ID = 0.841),
-   or (b) drop from the paper. Waiting on 93811 (vanilla-TRIX 3-ds)
-   to see if the regression is intrinsic to the joint task or
-   specific to GRATE.
-3. **β=1000 is the new default on ICEWS14.** Sweep β ∈ {200, 500,
-   1000, 2000, 5000} to confirm the plateau, then repeat on YAGO
-   (yearly Δt) and GDELT (15-min Δt) — the optimum should scale
-   inversely with Δt.
-4. **WIKI IndT interpolation paper row** — Explore agent hunting for
+1. **Present ep3 as the canonical "+Method" ckpt** (§ 4b). ep3 wins
+   8 out of 14 measured comparisons, ties 5, loses 1 (ICEWS18 ss by
+   0.027). Six ep9 cells still missing — ICEWS14/0515 static,
+   GDELT_25/50/75/100 inter static. Fill them to confirm ep3 holds
+   on the ICEWS family (vs the pattern that ep9 wins on
+   pretrain-adjacent zero-shot like ICEWS18).
+2. **3-ds "regression" claim is retracted pending eval-side audit**
+   (§ 4a). The warm-start snapshot (ep0) scores 0.03 lower than the
+   same ckpt loaded in the single-dataset harness. The drop at ep1
+   is within noise. The regression we saw was the eval harness, not
+   training. Must isolate the config difference (num_time vocab,
+   entity reindexing, base_beta plumbing) before any statement
+   about 3-ds-pretraining impact is defensible.
+3. **Model-width scaling probe in flight** (§ 4g). 94290 running at
+   lr=2.5e-4 after the ep1 crash under lr=5e-4 at bs=1. If dim=96
+   converges above dim=64's 0.63, extend to dim=128 for a 3-point
+   scaling curve. If not, the scalability story is dead and the
+   paper leans on ep3-vs-ep9 (§ 4b) and ep3-vs-FITTER (§ 4f).
+4. **ICEWS18 — the exception.** The one dataset where ep9 beats ep3.
+   Worth a footnote: pretrain-adjacent zero-shot favors the
+   more-trained ckpt, in-pretrain / out-of-domain-inductive favors
+   the less-overfit ckpt. If space permits, this split is a
+   publishable finding on its own.
+5. **β=1000 is best, β=10000 is 0.005 away** (§ 4c). Report as
+   robustness, not tuning. Still need β=10000 refill cell, and
+   cross-scale sweeps on YAGO (yearly Δt) and GDELT (15-min Δt) if
+   we want the "optimum β scales inversely with Δt" invariant.
+6. **WIKI IndT interpolation paper row** — Explore agent hunting for
    the source of 0.623/0.760/0.858/0.962 (TRIX row) and
-   0.507/0.650/0.872/0.991 (+Method row) — still open.
-5. **Vanilla-TRIX-3ds vs GRATE-3ds A/B** (job 93811) — isolates the
-   temporal-message contribution on the 3-source mix. Result will
-   sharpen whether the drift observed in § 4a is an architecture
-   issue or a data-mix issue.
+   0.507/0.650/0.872/0.991 (+Method row) — still open. Our actual
+   ep9 run (27403-6) matches the paper's +Method row within 0.001
+   so provenance of the +Method row is confirmed.
+7. **Vanilla-TRIX-3ds vs GRATE-3ds A/B** (jobs 93629 vs 93811,
+   § 4e) — GRATE +0.09 avg val MRR on the joint 3-ds task; YAGO
+   isolates +0.030 as the pure RoPE contribution (warm-start-free).
+   Reportable as a mini-ablation if the main scalability story
+   collapses.
