@@ -540,7 +540,69 @@ in-distribution fit.
 | GDELT_75_extra  | ss | 0.2725 | 0.3184 | **+0.046** |
 | GDELT_100_extra | ss | 0.2406 | 0.2903 | **+0.050** |
 
-#### Scorecard
+#### Hits@1 (protocol-matched)
+
+| dataset | mode | **vULTRA** | **TIGER** | Δ (TIGER − vULTRA) |
+|---|---|---:|---:|---:|
+| WIKI_25_inter  | static | 0.5663 | 0.5243 | **−0.042** |
+| WIKI_50_inter  | static | 0.6661 | 0.6659 | ≈0 |
+| WIKI_75_inter  | static | 0.7836 | 0.7762 | −0.007 |
+| WIKI_100_inter | static | 0.9070 | 0.9120 | +0.005 |
+| WIKI_25_extra  | ss | 0.7440 | 0.9542 | **+0.210** |
+| WIKI_50_extra  | ss | 0.8737 | 0.9411 | **+0.067** |
+| WIKI_75_extra  | ss | 0.9455 | 0.9585 | +0.013 |
+| WIKI_100_extra | ss | 0.9297 | 0.9326 | ≈0 |
+| GDELT_25_inter  | static | 0.1497 | 0.1262 | **−0.024** |
+| GDELT_50_inter  | static | 0.1394 | 0.1135 | **−0.026** |
+| GDELT_75_inter  | static | 0.1582 | 0.1347 | **−0.023** |
+| GDELT_100_inter | static | 0.1615 | 0.1300 | **−0.032** |
+| GDELT_25_extra  | ss | 0.1578 | 0.1669 | +0.009 |
+| GDELT_50_extra  | ss | 0.1516 | 0.1808 | **+0.029** |
+| GDELT_75_extra  | ss | 0.1725 | 0.2136 | **+0.041** |
+| GDELT_100_extra | ss | 0.1430 | 0.1889 | **+0.046** |
+
+H@1 shows the same split pattern as MRR but with sharper magnitudes:
+- WIKI_25_extra: H@1 gap +0.210 (vs MRR +0.107) — TIGER's temporal
+  signal nails the top-1 rank especially hard at low inductive
+  ratios.
+- GDELT inter: H@1 gap −0.023 to −0.032 — TIGER's rank-1 degradation
+  on recurring patterns is slightly larger than its MRR cost
+  (−0.023 to −0.032 vs MRR −0.030 to −0.035). RoPE's rotations are
+  hurting the model's ability to decisively pick the correct tail
+  when the target is a time-mixed recurrence.
+
+#### Hits@10 (protocol-matched)
+
+| dataset | mode | **vULTRA** | **TIGER** | Δ (TIGER − vULTRA) |
+|---|---|---:|---:|---:|
+| WIKI_25_inter  | static | 0.7965 | 0.7953 | ≈0 |
+| WIKI_50_inter  | static | 0.8289 | 0.8219 | −0.007 |
+| WIKI_75_inter  | static | 0.8677 | 0.8661 | ≈0 |
+| WIKI_100_inter | static | 0.9596 | 0.9604 | ≈0 |
+| WIKI_25_extra  | ss | 0.9786 | 0.9796 | ≈0 |
+| WIKI_50_extra  | ss | 0.9716 | 0.9711 | ≈0 |
+| WIKI_75_extra  | ss | 0.9838 | 0.9832 | ≈0 |
+| WIKI_100_extra | ss | 0.9748 | 0.9785 | +0.004 |
+| GDELT_25_inter  | static | 0.4350 | 0.3831 | **−0.052** |
+| GDELT_50_inter  | static | 0.4274 | 0.3719 | **−0.056** |
+| GDELT_75_inter  | static | 0.4339 | 0.3857 | **−0.048** |
+| GDELT_100_inter | static | 0.4579 | 0.4158 | **−0.042** |
+| GDELT_25_extra  | ss | 0.4439 | 0.4674 | +0.024 |
+| GDELT_50_extra  | ss | 0.4407 | 0.4877 | **+0.047** |
+| GDELT_75_extra  | ss | 0.4737 | 0.5229 | **+0.049** |
+| GDELT_100_extra | ss | 0.4317 | 0.4907 | **+0.059** |
+
+H@10 shows the WIKI gap collapses almost entirely at the top-10 level
+(both models saturate the top-10 ceiling on WIKI). But **the GDELT
+inter gap persists at H@10** (−0.042 to −0.056) — bigger than the
+MRR gap, suggesting TIGER's rotations push the correct GDELT inter
+tails further down the ranking, not just out of top-1 but out of
+top-10. On GDELT extra, H@10 shows TIGER's lift (+0.024 to +0.059) is
+comparable in magnitude to MRR, indicating the extra signal is
+pulling the correct tail into the top-10 band consistently, not just
+boosting its rank within that band.
+
+#### Scorecard (MRR)
 
 | outcome | count | datasets |
 |---|---:|---|
