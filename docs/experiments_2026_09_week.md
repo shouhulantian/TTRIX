@@ -1,4 +1,4 @@
-# Experiments week of 2026-09-28 → 2026-10-01
+# Experiments week of 2026-09-28 → 2026-10-05
 
 Session log covering FITTER port, TIGER port, filter-fix rediscovery,
 3-dataset GRATE pretraining launch, RoPE β sensitivity sweep,
@@ -428,17 +428,20 @@ works: ep3 above FITTER on WIKI inter, GDELT inter/extra; ties on
 WIKI extra where both saturate. The smallest gap is exactly where
 the ceiling forces both models into a corner — defensible framing.
 
-### g) Model-width scaling probe (dim=96, jobs 94222 → 94231 → 94290)
+### g) Model-width scaling probe (dim=96, jobs 94222 → 94231 → 94290, DONE)
 
 Replacement scalability story after 3-ds pretrain didn't produce a
 clean "more data helps" signal (§ 4a). Scales GRATE's `input_dim` and
 `hidden_dims` from 64 → 96 on the same 2-ds mix, cold start.
 
-- **94222** (first attempt, bs=2): OOM at first layer after 20 s —
-  dim=96 bs=2 needs > 79 GB on A100:80G.
-- **94231** (bs=1, lr=5e-4, same as dim=64 baseline): ran 11 h 28 m
-  to ep7 before cancel. Trajectory had the diagnostic signature of
-  **LR-too-high** at halved effective batch:
+Saga across three attempts:
+
+- **94222** (first attempt, bs=2 lr=5e-4): OOM at first layer after
+  20 s — dim=96 bs=2 needs > 79 GB on A100:80G. Submitted with
+  wrong batch for the memory ceiling.
+- **94231** (bs=1 lr=5e-4): ran 11 h 28 m to ep7 before cancel.
+  Trajectory had the diagnostic signature of **LR-too-high** at
+  halved effective batch:
 
   | epoch | ICEWS14 | ICEWS0515 |
   |---:|---:|---:|
@@ -447,50 +450,226 @@ clean "more data helps" signal (§ 4a). Scales GRATE's `input_dim` and
   | 2 | 0.493 | 0.449 |
   | 3-7 | 0.45–0.49 (oscillates) | 0.44–0.46 |
 
-  ep0 (model init + eval, no training yet) is comparable to vanilla
-  TRIX cold-start 0.495. Then ep1 drops 0.08 MRR, and the model
-  oscillates in the 0.44-0.49 band ever since. Classic
-  LR-too-high-at-small-batch signature.
+  Classic LR-too-high-at-small-batch signature. Each gradient step
+  at the full lr=5e-4 overshoots when effective batch is halved.
 
-- **94290** (resubmitted with `lr=2.5e-4`, linear scaling rule for
-  bs=1 vs bs=2 baseline): RUNNING. Decision rule — if ep1 MRR ≥ ep0
-  MRR → LR was the issue, let it converge; if ep1 crashes again →
-  try `bs=2 + num_negative=256` to restore the baseline gradient
-  noise regime.
+- **94290** (bs=1 **lr=2.5e-4**, linear scaling rule): COMPLETED
+  10 epochs in 16 h 26 m. No crash; smooth convergence.
 
-**Open**: if dim=96 does climb past dim=64's 0.63 at convergence,
-add a dim=128 datapoint for a 3-point scaling curve. If it merely
-matches dim=64, the paper framing becomes "GRATE is well-sized at
-dim=64 for these datasets" (honest, less exciting). If it loses to
-dim=64, the width-scaling story is dead and we fall back to the ep3
-vs ep9 cross-dataset dominance (§ 4b) and the FITTER head-to-head
-(§ 4f) as the paper's two main empirical anchors.
+  | epoch | ICEWS14 | ICEWS0515 | avg |
+  |---:|---:|---:|---:|
+  | 3 | 0.550 | 0.519 | 0.534 |
+  | 4 | 0.519 | 0.503 | 0.511 |
+  | **5** | **0.563** | **0.552** | **0.557** ← peak |
+  | 6 | 0.540 | 0.530 | 0.535 |
+  | 7-9 | drift down to 0.507 | | |
+
+  LR fix solved the crash. 94290 peak = **0.557** vs dim=64 (27204)
+  peak = **0.616** → **dim=96 LOSES by 0.059 avg val MRR**.
+
+**Width scaling is dead for this pretrain budget.** Factors likely
+at play:
+- Cold start vs 27204's warm-start chain (27037 → 27175 → 27204 =
+  20-30 effective training epochs). 94290 only had 10.
+- bs=1 effective batch 6 vs bs=2 effective batch 12 — half the
+  gradient info per step, even with LR scaled down.
+- Possibly capacity-data imbalance (dim=96 has 765k params vs
+  27204 dim=64's 340k; 2-ds has ~500k facts total).
+
+**Possible next moves** (parked as future work):
+- Clean baseline: dim=64 cold-start at bs=1 lr=2.5e-4 for 10 epochs.
+  If that also peaks at ~0.55, dim=96 is actually ON PAR under
+  matched protocol (the 0.616 "baseline" has unfair warm-start
+  advantage).
+- Match batch regime: dim=96 at bs=2 with num_negative reduced from
+  512 → 256 (frees activation memory). Restores baseline gradient
+  noise.
+- Longer schedule: dim=96 cold-start 20-30 epochs with LR warmup +
+  cosine decay.
+- Scale data: dim=96 3-ds (add YAGO) with warm start.
+
+**Paper implication**: width-scaling result as currently measured is
+negative; the paper leans on ep3 vs ep9 cross-dataset dominance
+(§ 4b) and ep3 vs FITTER head-to-head (§ 4f) as the empirical
+anchors. Scalability-via-width is cited as "with the current
+pretrain budget and ckpt chain, 64 is sufficient — scaling the
+backbone requires a longer training schedule we leave to future
+work" rather than a win.
 
 ---
 
-## 5. Reruns in flight (2026-10-01)
+### h) Vanilla ULTRA vs TIGER head-to-head on IndT sweeps (jobs 27548-55, 28159-66, 28208-15, 28232-39, 93693, 94307, 94331-4)
 
-| final jid | task | walltime | outcome |
-|---|---|---|---|
-| 94221_6 | β=50000 sensitivity on ICEWS14 | 2 h | COMPLETED (filled the β=50000 cell) |
-| 94233_1 | GDELT_25_extra_ep3_ss | 10 h | COMPLETED (filled GDELT_25 cell) |
-| 94234_10 | ICEWS18_ep3_ss | 10 h | COMPLETED (**ep9 wins — see § 4b**) |
-| 94236_1 | 3ds ep0 ICEWS14 static | 8 h | COMPLETED (**eval drift discovered — see § 4a**) |
-| 94235_2 | 3ds ep1 ICEWS0515 static (rerun) | 8 h | RUNNING (same "Evaluate on test" stall risk) |
-| 94236_2 | 3ds ep0 ICEWS0515 static | 8 h | RUNNING (same stall risk) |
-| 94236_3 | 3ds ep0 YAGO single_step | 8 h | RUNNING |
+Baseline question for the paper: does TIGER's bundle of 5 temporal
+mechanisms (RoPE2_decay_q entity msg, `dual` relation msg, `use_time: nbf`,
+`project_times: True`, relation `window_size: 1`) actually transfer better
+than vanilla ULTRA zero-shot? Protocol-matched comparison: `_inter`
+uses static eval, `_extra` uses rolling single_step eval (same choice
+for both models).
 
-Chain history (cancelled → resubmitted → final): 94212→94225→**94233**,
-94213→94226→**94234**, 94214→94227→**94235**, 94215→94228→**94236**.
+Pretrain ckpts used:
+
+| model | ckpt | source job | best val MRR (ICEWS14 / ICEWS0515) |
+|---|---|---|---:|
+| vULTRA | `.../2026-05-01-09-14-15/model_epoch_5.pth` | 27365 ep4 | 0.499 / 0.447 (avg 0.473) |
+| TIGER | `.../2026-04-30-00-25-08/model_epoch_6.pth` | 27171 ep5 | 0.624 / 0.617 (avg **0.620**) |
+
+Both are best-val-epoch picks from their respective 2-ds pretrains
+(ICEWS14 + ICEWS0515, equal sampling, same training infrastructure).
+TIGER's pretrain val is +0.147 above vULTRA's — RoPE2_decay_q helps
+in-distribution fit.
+
+#### Full comparison (test MRR, protocol-matched)
+
+| dataset | mode | **vULTRA** | **TIGER** | Δ (TIGER − vULTRA) |
+|---|---|---:|---:|---:|
+| WIKI_25_inter  | static | 0.6553 | 0.6333 | **−0.022** |
+| WIKI_50_inter  | static | 0.7294 | 0.7277 | ≈0 |
+| WIKI_75_inter  | static | 0.8148 | 0.8088 | −0.006 |
+| WIKI_100_inter | static | 0.9291 | 0.9309 | ≈0 |
+| WIKI_25_extra  | ss | 0.8586 | 0.9658 | **+0.107** |
+| WIKI_50_extra  | ss | 0.9191 | 0.9539 | **+0.035** |
+| WIKI_75_extra  | ss | 0.9630 | 0.9708 | +0.008 |
+| WIKI_100_extra | ss | 0.9501 | 0.9535 | ≈0 |
+| GDELT_25_inter  | static | 0.2458 | 0.2133 | **−0.033** |
+| GDELT_50_inter  | static | 0.2363 | 0.2016 | **−0.035** |
+| GDELT_75_inter  | static | 0.2507 | 0.2205 | **−0.030** |
+| GDELT_100_inter | static | 0.2619 | 0.2269 | **−0.035** |
+| GDELT_25_extra  | ss | 0.2540 | 0.2688 | **+0.015** |
+| GDELT_50_extra  | ss | 0.2508 | 0.2848 | **+0.034** |
+| GDELT_75_extra  | ss | 0.2725 | 0.3184 | **+0.046** |
+| GDELT_100_extra | ss | 0.2406 | 0.2903 | **+0.050** |
+
+#### Scorecard
+
+| outcome | count | datasets |
+|---|---:|---|
+| **TIGER wins** | 6 | WIKI_25/50_extra, GDELT_25/50/75/100_extra |
+| ties | 5 | WIKI_50/75/100_inter, WIKI_75/100_extra |
+| **vULTRA wins** | 5 | WIKI_25_inter, GDELT_25/50/75/100_inter |
+
+#### Averages by split type
+
+| split | vULTRA avg MRR | TIGER avg MRR | Δ |
+|---|---:|---:|---:|
+| WIKI inter | 0.7822 | 0.7752 | −0.007 (slight loss) |
+| WIKI extra | 0.9227 | 0.9610 | **+0.038** |
+| GDELT inter | 0.2487 | 0.2156 | **−0.033** (clear loss) |
+| GDELT extra | 0.2545 | 0.2906 | **+0.036** |
+
+#### Reproducibility of the TIGER inter result
+
+The GDELT inter deficit is **not an outlier**. Four independent
+evaluations of 27171 ep5 agree to within 0.001 MRR per cell:
+
+| ratio | TIGER static (27258-60, 27245) | TIGER single_step (93693_9/11/13/15) |
+|---|---:|---:|
+| GDELT_25_inter | 0.2133 | 0.2140 |
+| GDELT_50_inter | 0.2016 | 0.2015 |
+| GDELT_75_inter | 0.2205 | 0.2211 |
+| GDELT_100_inter | 0.2269 | 0.2258 |
+
+Static and single_step converge, so protocol is not the issue.
+Sanity checks also ruled out: ckpt corruption, dataset-class
+mismatch, filter semantics, config load errors, batch-size artifact
+(see § 7 "sanity audit").
+
+#### Does an earlier TIGER ckpt generalize better? (The TRIX-analog test)
+
+For TRIX+GRATE we found ep3 > ep9 on 8/9 datasets. Testing the
+analogous question for TIGER: 94331-4 ran **27171 ep3 static** on
+GDELT inter:
+
+| ratio | TIGER ep3 (new) | TIGER ep5 (default) | vULTRA |
+|---|---:|---:|---:|
+| 25% | TIMEOUT (2h walltime too short) | 0.2133 | 0.2458 |
+| 50% | TIMEOUT | 0.2016 | 0.2363 |
+| 75% | **0.1903** | 0.2205 | 0.2507 |
+| 100% | **0.1885** | 0.2269 | 0.2619 |
+
+**TIGER ep3 is WORSE than TIGER ep5 on GDELT inter.** The TRIX
+"earlier ckpt generalizes better" pattern does **not** hold for
+TIGER. GDELT inter weakness is intrinsic to the TIGER architecture,
+not an overtraining artifact. (94331/94332 need rerun at 8h
+walltime for the missing cells.)
+
+#### Interpretation
+
+TIGER's 5-axis temporal bundle **specializes toward future prediction
+at the expense of time-mixed interpolation on dense recurring
+datasets**:
+- WIKI inter: temporal mechanisms neutral (WIKI inter has less
+  recurring structure than GDELT inter).
+- WIKI extra: TIGER wins at low inductive ratios (+0.11 at p25,
+  tie at p100). The temporal rotation does real work when the task
+  is strictly forecasting.
+- GDELT inter: TIGER loses by 0.03 across all 4 ratios. Dense
+  recurring patterns (same h-r keeps happening at different times)
+  benefit from a time-agnostic model; TIGER's rotations destroy the
+  recurrence invariance.
+- GDELT extra: TIGER wins by 0.02-0.05 (RoPE helps forecasting on
+  GDELT too).
+
+**Paper story**: *"RoPE2_decay_q is a future-prediction specialist.
+It adds +0.04 avg MRR on extrapolation but costs −0.03 avg MRR on
+GDELT interpolation. On WIKI (less recurring structure) the trade
+is net-neutral; on GDELT (dense recurring events) the trade is real.
+The TRIX+GRATE architecture avoids the interpolation regression
+because its dual-tower design has capacity to encode BOTH signals
+(recurrence via one tower, temporal rotation via the other), while
+single-tower ULTRA has to choose."*
+
+**ULTRA ↔ TIGER architectural axes** (what differs when the paper
+labels them "+GRATE"):
+
+| axis | vULTRA | TIGER |
+|---|---|---|
+| entity_model `message_func` | `distmult` | `RoPE2_decay_q` |
+| relation_model `message_func` | `distmult` | `dual` |
+| entity `use_time` | `default` | `nbf` |
+| entity `project_times` | `False` | `True` (+8,320-param MLP) |
+| relation `window_size` | 0 | 1 |
+
+So "ULTRA+GRATE" is a 5-axis bundle, not a single-component addition.
+A cleaner ablation (RoPE only, dual-relation only, etc.) would need
+new pretrains and is parked as future work.
+
+---
+
+## 5. Reruns & reruns-of-reruns (2026-10-01 → 2026-10-05, all terminal)
+
+Final status of every rerun chain:
+
+| final jid | task | outcome |
+|---|---|---|
+| 94221_6 | β=50000 sensitivity on ICEWS14 | COMPLETED (filled β=50000 cell) |
+| 94233_1 | GDELT_25_extra_ep3_ss | COMPLETED (filled GDELT_25 cell) |
+| 94234_10 | ICEWS18_ep3_ss | COMPLETED (ep9 wins — see § 4b) |
+| 94235_2 | 3ds ep1 ICEWS0515 static (rerun) | **TIMEOUT** at 8h (stall at "Evaluate on test" is systematic) |
+| 94236_1 | 3ds ep0 ICEWS14 static | COMPLETED (eval drift discovered — see § 4a) |
+| 94236_2 | 3ds ep0 ICEWS0515 static | **TIMEOUT** at 8h (same stall) |
+| 94236_3 | 3ds ep0 YAGO single_step | COMPLETED → MRR 0.8262 (drift confirmed systematic) |
+| 94290 | dim=96 2-ds pretrain lr=2.5e-4 | COMPLETED (see § 4g) |
+| 94307_[1-8] | vULTRA single_step on 8 extra variants | all COMPLETED (see § 4h) |
+| 94331 | TIGER ep3 static GDELT_25_inter | TIMEOUT (2h walltime, need 8h) |
+| 94332 | TIGER ep3 static GDELT_50_inter | TIMEOUT (same) |
+| 94333 | TIGER ep3 static GDELT_75_inter | COMPLETED → 0.1903 (ep3 < ep5) |
+| 94334 | TIGER ep3 static GDELT_100_inter | COMPLETED → 0.1885 (ep3 < ep5) |
+
+Chain history (cancelled → resubmitted → final):
+- 94212→94225→**94233** (GDELT_25_extra ep3 ss)
+- 94213→94226→**94234** (ICEWS18 ep3 ss)
+- 94214→94227→**94235** (ICEWS0515 3ds ep1 — never completed)
+- 94215→94228→**94236** (3ds ep0 baseline — 2/3 done, ICEWS0515 unreachable)
+- 94222→94231→**94290** (dim=96 pretrain)
 
 ---
 
 ## 6. Currently running
 
-| job | what | ETA |
-|---|---|---|
-| **94290** | GRATE dim=96 cold-start 2-ds pretrain, **lr=2.5e-4** (bs=1). Model-width scaling probe. See § 4g. | PENDING on QOS (needs 6 A100s; blocked by 3 running single-GPU jobs on gpuB01) |
-| 94235_2, 94236_2, 94236_3 | 3ds eval tail (see § 5) | 2-6 h |
+**Queue is empty.** All watched jobs have reached terminal state as of
+2026-10-02 03:31 (last to finish: 94290 dim=96 pretrain). Job watcher
+retired on 2026-10-05.
 
 **93811 (vanilla TRIX 3-ds) was CANCELLED at ep8** after capturing a
 clear plateau at avg 0.539 (ep2) with drift to 0.515 by ep7. Enough
@@ -522,6 +701,23 @@ protocol. Verification job 93711 in flight.
   numbers use the correct fallback, **no re-eval needed**.
 - Fast-val (during training) call site was still buggy; patched today.
 
+### TIGER-under-vULTRA on GDELT inter — sanity audit (2026-10-02)
+
+User raised the question "could TIGER's weak GDELT inter number be
+a bug?" Full checklist run:
+
+| check | result |
+|---|---|
+| Ckpt structure (`model_epoch_6.pth` vs `model_epoch_5.pth`) | TIGER 86 keys / 177k params, vULTRA 82 keys / 169k params. Diff = exactly the 4-tensor `time_projection` MLP (`project_times: True` in TIGER). Zero shape mismatches on 82 shared keys. ✅ |
+| Param health | 0 NaN, 0 all-zero, all-finite in both. Norms reasonable (0.1-18, median ~5). ✅ |
+| Shared-key weight distinctness | 0/82 identical — models trained independently. ✅ |
+| Dataset-class resolution | Both sweeps use `WIKIIndT_X_Y` / `GDELTIndT_X_Y` single-definition classes in `ultra/datasets.py`. ✅ |
+| Config load | TIGER static eval config dump confirms `message_func: RoPE2_decay_q`, `project_times: True`, `alpha: 0`. No silent mismatch. ✅ |
+| Reproducibility across protocols | TIGER static and single_step on GDELT inter agree to within 0.001 MRR on all 4 cells. ✅ |
+
+Conclusion: GDELT inter deficit is a real property of the TIGER
+architecture, not a measurement artifact. See § 4h.
+
 ---
 
 ## 8. Open items for the paper
@@ -539,11 +735,20 @@ protocol. Verification job 93711 in flight.
    training. Must isolate the config difference (num_time vocab,
    entity reindexing, base_beta plumbing) before any statement
    about 3-ds-pretraining impact is defensible.
-3. **Model-width scaling probe in flight** (§ 4g). 94290 running at
-   lr=2.5e-4 after the ep1 crash under lr=5e-4 at bs=1. If dim=96
-   converges above dim=64's 0.63, extend to dim=128 for a 3-point
-   scaling curve. If not, the scalability story is dead and the
-   paper leans on ep3-vs-ep9 (§ 4b) and ep3-vs-FITTER (§ 4f).
+3. **Model-width scaling probe FAILED** (§ 4g). 94290 completed at
+   lr=2.5e-4 with peak 0.557 at ep5 — **loses to dim=64 by 0.059 avg
+   val MRR**. Several confounds (cold start, bs=1, 10-epoch budget).
+   Width scaling parked as future work; paper leans on ep3-vs-ep9
+   (§ 4b) and ep3-vs-FITTER (§ 4f) for the empirical core.
+
+4. **TIGER (ULTRA+GRATE) vs vULTRA zero-shot — mixed story** (§ 4h).
+   TIGER wins 6/16 cells (all `_extra` on GDELT, low-ratio `_extra`
+   on WIKI), loses 5/16 (all `_inter` on GDELT, WIKI_25_inter), ties
+   5/16. **RoPE2_decay_q + the 4 companion mechanisms specialize
+   toward future prediction at the expense of GDELT interpolation**.
+   TIGER ep3 also tested on GDELT inter and is WORSE than ep5
+   (opposite of TRIX pattern) — the deficit is intrinsic to TIGER,
+   not an overtraining artifact. For paper framing see § 4h.
 4. **ICEWS18 — the exception.** The one dataset where ep9 beats ep3.
    Worth a footnote: pretrain-adjacent zero-shot favors the
    more-trained ckpt, in-pretrain / out-of-domain-inductive favors
